@@ -1,0 +1,546 @@
+================================================================================
+                    SecondMe OAuth 集成问题修复总结
+================================================================================
+
+本文档记录了在集成 SecondMe OAuth2 登录功能时遇到的问题、调试过程和
+最终解决方案。目的是为其他 AI 助手提供可复用的经验参考。
+
+================================================================================
+                            问题概述
+================================================================================
+
+技术栈：Next.js 16 + TypeScript + Prisma + PostgreSQL
+集成目标：使用 SecondMe OAuth2 实现用户登录功能
+
+================================================================================
+                          初始症状和问题
+================================================================================
+
+症状 1: Firebase Site Not Found 页面
+现象：用户点击登录后看到 Firebase 404 页面，而不是 SecondMe 授权页面
+根本原因：用户访问了错误的 URL（可能是之前部署的 Firebase 地址）
+解决方法：确认访问本地开发服务器 http://localhost:3000
+
+症状 2: OAuth 404 Not Found - NoSuchKey
+现象：请求 SecondMe OAuth 端点返回 404 错误
+错误信息：Key: oauth/oauth/authorize
+根本原因：URL 路径配置错误，导致 oauth 路径段重复
+解决方法：修正 OAuth 端点 URL 配置
+
+================================================================================
+                        根本原因分析
+================================================================================
+
+核心问题：SecondMe Skill 生成的初始配置与官方文档不一致
+
+具体表现：
+1. API Base URL 配置错误
+2. OAuth 授权 URL 端点错误
+3. Token 交换端点错误
+4. Token 交换请求格式错误
+5. 响应数据结构解析错误
+
+================================================================================
+                          修复阶段详解
+================================================================================
+
+================================================================================
+阶段 1: 修复 API Base URL 配置
+================================================================================
+
+问题：环境变量中的 SecondMe API 端点不正确
+
+错误配置：
+SECONDME_API_BASE_URL = https://api.second.me
+SECONDME_AUTH_URL = https://auth.second.me
+
+正确配置（来自官方文档）：
+SECONDME_API_BASE_URL = https://app.mindos.com/gate/lab
+SECONDME_AUTH_URL = https://go.second.me/oauth
+
+修改文件：
+1. .secondme/state.json - 更新 api.baseUrl 和 api.authUrl
+2. .env.local - 更新对应的环境变量
+
+重要提示：
+- API Base URL 用于所有 SecondMe API 请求（包括用户信息、聊天等）
+- Auth URL 专门用于 OAuth 授权流程
+- 两个 URL 必须严格按照官方文档配置
+
+参考文档：
+https://develop-docs.second.me/zh/docs/authentication/oauth2
+
+================================================================================
+阶段 2: 修复授权 URL 路径重复问题
+================================================================================
+
+问题：授权 URL 拼接时路径段重复
+
+错误代码（src/app/api/auth/login/route.ts）：
+const authUrl = `${process.env.SECONDME_AUTH_URL}/oauth/authorize?${params}`;
+
+执行结果：
+https://go.second.me/oauth/oauth/authorize?client_id=...
+问题：oauth 路径段出现两次，导致 404 错误
+
+正确代码：
+const authUrl = `${process.env.SECONDME_AUTH_URL}/?${params}`;
+
+执行结果：
+https://go.second.me/oauth/?client_id=...&redirect_uri=...&response_type=code...
+正确：URL 格式符合官方文档要求
+
+关键知识点：
+- 环境变量 SECONDME_AUTH_URL 已包含 /oauth 路径
+- 代码中只需在后面直接加 /? 参数，不能再加 /oauth
+- 最终 URL 格式必须是 https://go.second.me/oauth/?参数
+
+================================================================================
+阶段 3: 修复 Token 交换端点和请求格式
+================================================================================
+
+这是最复杂的一个阶段，涉及多个关键修复。
+
+问题 1: Token 交换端点 URL 错误
+
+错误代码：
+const tokenResponse = await fetch(
+  `${process.env.SECONDME_AUTH_URL}/token`,
+  { method: 'POST', ... }
+);
+
+错误原因：
+- 使用了 SECONDME_AUTH_URL（https://go.second.me/oauth）
+- 实际上应该使用 SECONDME_API_BASE_URL
+
+正确代码：
+const tokenResponse = await fetch(
+  `${process.env.SECONDME_API_BASE_URL}/api/oauth/token/code`,
+  { method: 'POST', ... }
+);
+
+正确端点：https://app.mindos.com/gate/lab/api/oauth/token/code
+
+问题 2: 请求格式错误
+
+错误配置：
+headers: { 'Content-Type': 'application/json' }
+body: JSON.stringify({ client_id: ..., client_secret: ..., code: ... })
+
+错误原因：
+- SecondMe Token 端点要求 application/x-www-form-urlencoded 格式
+- 不能使用 JSON 格式
+
+正确配置：
+const params = new URLSearchParams({
+  grant_type: 'authorization_code',
+  code: authorizationCode,
+  redirect_uri: process.env.SECONDME_REDIRECT_URI,
+  client_id: process.env.SECONDME_CLIENT_ID,
+  client_secret: process.env.SECONDME_CLIENT_SECRET,
+});
+
+headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+body: params.toString()
+
+重要知识点：
+- OAuth2 标准通常使用 form-urlencoded 格式进行 Token 交换
+- 不要假设所有 API 都接受 JSON 格式
+- 必须严格按照官方文档的格式要求
+
+================================================================================
+阶段 4: 修复响应数据结构解析
+================================================================================
+
+问题：对 SecondMe API 响应格式的理解错误
+
+错误假设：
+响应直接返回 Token 数据：
+{
+  "accessToken": "lba_at_xxx",
+  "refreshToken": "lba_rt_xxx",
+  "expiresIn": 7200
+}
+
+实际格式：
+所有 SecondMe API 都使用统一的响应包装：
+{
+  "code": 0,
+  "data": {
+    "accessToken": "lba_at_xxx",
+    "refreshToken": "lba_rt_xxx",
+    "tokenType": "Bearer",
+    "expiresIn": 7200,
+    "scope": ["user.info", "chat"]
+  }
+}
+
+错误代码：
+const tokenData = await tokenResponse.json();
+accessToken: tokenData.access_token  // 字段名错误，应该用驼峰
+
+正确代码：
+const tokenResult = await tokenResponse.json();
+
+if (tokenResult.code !== 0) {
+  throw new Error(`Token error: ${tokenResult.message}`);
+}
+
+const tokenData = tokenResult.data;
+accessToken: tokenData.accessToken  // 正确字段名
+refreshToken: tokenData.refreshToken
+expiresIn: tokenData.expiresIn
+
+关键知识点：
+- SecondMe API 统一响应格式：{ code: 0, data: {...} }
+- code = 0 表示成功，非 0 表示错误
+- 实际数据在 data 字段内
+- 字段命名使用驼峰式（camelCase），不是下划线式（snake_case）
+
+================================================================================
+                      完整正确的配置示例
+================================================================================
+
+================================================================================
+环境变量配置（.env.local）
+================================================================================
+
+SecondMe OAuth2 配置：
+SECONDME_CLIENT_ID=your_client_id_here
+SECONDME_CLIENT_SECRET=your_client_secret_here
+SECONDME_REDIRECT_URI=http://localhost:3000/api/auth/callback
+
+数据库配置（示例）：
+DATABASE_URL=postgresql://user:password@localhost:5432/your_database
+
+SecondMe API 配置（重要）：
+SECONDME_API_BASE_URL=https://app.mindos.com/gate/lab
+SECONDME_AUTH_URL=https://go.second.me/oauth
+
+================================================================================
+授权 URL 构造（完整代码）
+================================================================================
+
+文件：src/app/api/auth/login/route.ts
+
+export async function GET(request: NextRequest) {
+  const state = crypto.randomUUID();
+  const cookieStore = await cookies();
+
+  cookieStore.set('oauth_state', state, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 10,
+  });
+
+  const params = new URLSearchParams({
+    client_id: process.env.SECONDME_CLIENT_ID!,
+    redirect_uri: process.env.SECONDME_REDIRECT_URI!,
+    response_type: 'code',
+    scope: [
+      'user.info',
+      'user.info.shades',
+      'user.info.softmemory',
+      'chat',
+      'note.add',
+    ].join(' '),
+    state,
+  });
+
+  const authUrl = `${process.env.SECONDME_AUTH_URL}/?${params}`;
+  return NextResponse.redirect(authUrl);
+}
+
+最终生成的 URL 示例：
+https://go.second.me/oauth/?client_id=YOUR_CLIENT_ID&redirect_uri=http://localhost:3000/api/auth/callback&response_type=code&scope=user.info%20user.info.shades%20user.info.softmemory%20chat%20note.add&state=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+================================================================================
+Token 交换请求（完整代码）
+================================================================================
+
+文件：src/app/api/auth/callback/route.ts
+
+关键代码段：
+
+const params = new URLSearchParams({
+  grant_type: 'authorization_code',
+  code: authorizationCode,
+  redirect_uri: process.env.SECONDME_REDIRECT_URI!,
+  client_id: process.env.SECONDME_CLIENT_ID!,
+  client_secret: process.env.SECONDME_CLIENT_SECRET!,
+});
+
+const tokenResponse = await fetch(
+  `${process.env.SECONDME_API_BASE_URL}/api/oauth/token/code`,
+  {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+  }
+);
+
+const tokenResult = await tokenResponse.json();
+
+if (tokenResult.code !== 0) {
+  throw new Error(`Token error: ${tokenResult.message || 'Unknown error'}`);
+}
+
+const tokenData = tokenResult.data;
+
+tokenData 结构：
+{
+  accessToken: "lba_at_xxxxx...",
+  refreshToken: "lba_rt_xxxxx...",
+  tokenType: "Bearer",
+  expiresIn: 7200,
+  scope: ["user.info", "chat"]
+}
+
+================================================================================
+                        关键经验教训
+================================================================================
+
+================================================================================
+经验 1: 永远以官方文档为准
+================================================================================
+
+问题描述：
+- SecondMe Skill 生成的配置可能过时或不准确
+- 第三方教程或示例可能已过时
+
+最佳实践：
+- 遇到问题时首先查阅官方文档
+- 对比官方示例与当前代码的差异
+- 官方文档：https://develop-docs.second.me/zh/docs/authentication/oauth2
+
+================================================================================
+经验 2: OAuth2 实现的常见陷阱
+================================================================================
+
+陷阱 1: URL 路径重复
+症状：生成的 URL 包含重复的路径段（如 /oauth/oauth/authorize）
+原因：
+  - 配置中已包含路径（如 https://go.second.me/oauth）
+  - 代码中又拼接了一次路径
+解决方法：
+  - 打印最终 URL 进行检查
+  - 确认配置和代码的职责边界
+
+陷阱 2: 请求格式混淆 JSON 和 form-urlencoded
+症状：服务器返回 400 或 422 错误
+原因：
+  - OAuth2 标准通常要求 form-urlencoded 格式
+  - 开发者习惯使用 JSON 格式
+解决方法：
+  - 严格按文档要求使用 application/x-www-form-urlencoded
+  - 使用 URLSearchParams 构建请求体
+  - 设置正确的 Content-Type header
+
+陷阱 3: 响应结构误解
+症状：无法读取响应字段，undefined 错误
+原因：
+  - 假设响应直接返回数据
+  - 忽略了响应包装结构（如 { code, data }）
+解决方法：
+  - 先打印完整响应查看结构
+  - 按照文档格式解析响应
+
+陷阱 4: 字段命名风格差异
+症状：字段值都是 undefined
+原因：
+  - 混淆 snake_case（user_id）和 camelCase（userId）
+  - API 使用驼峰命名，代码使用下划线命名
+解决方法：
+  - 确认 API 的命名风格
+  - 保持代码与 API 一致
+
+================================================================================
+经验 3: 有效的调试技巧
+================================================================================
+
+技巧 1: 检查最终 URL
+在重定向前打印完整 URL：
+console.log('Auth URL:', authUrl);
+应该看到：https://go.second.me/oauth/?client_id=...&...
+
+技巧 2: 详细的错误日志
+if (!tokenResponse.ok) {
+  const errorText = await tokenResponse.text();
+  console.error('Token exchange failed:', {
+    status: tokenResponse.status,
+    statusText: tokenResponse.statusText,
+    body: errorText,
+  });
+}
+
+技巧 3: 检查响应结构
+const result = await response.json();
+console.log('Response:', JSON.stringify(result, null, 2));
+
+技巧 4: 使用网络抓包工具
+- 浏览器开发者工具 Network 面板
+- 查看实际发送的请求头和请求体
+- 对比实际请求与文档要求的差异
+
+================================================================================
+经验 4: 开发环境注意事项
+================================================================================
+
+注意事项 1: 确保访问正确的本地地址
+- 开发时必须访问 http://localhost:3000
+- 不要误访问部署的测试地址
+
+注意事项 2: 端口冲突处理
+症状：Port 3000 is in use
+解决方法：
+  - 查找并终止占用端口的进程
+  - 或修改 Next.js 使用其他端口
+
+注意事项 3: 环境变量修改需要重启
+- 修改 .env.local 后必须重启开发服务器
+- npm run dev 需要重新启动
+
+注意事项 4: Cookie 域名问题
+- 本地开发使用 localhost
+- 确保 cookie 设置的域名匹配
+
+================================================================================
+                      修改文件完整清单
+================================================================================
+
+文件 1: .secondme/state.json
+修改内容：
+  - api.baseUrl: https://api.second.me -> https://app.mindos.com/gate/lab
+  - api.authUrl: https://auth.second.me -> https://go.second.me/oauth
+
+文件 2: .env.local
+修改内容：
+  - SECONDME_API_BASE_URL: https://api.second.me -> https://app.mindos.com/gate/lab
+  - SECONDME_AUTH_URL: https://auth.second.me -> https://go.second.me/oauth
+
+文件 3: src/app/api/auth/login/route.ts
+修改内容：
+  - 授权 URL 从 `${SECONDME_AUTH_URL}/oauth/authorize`
+  - 改为 `${SECONDME_AUTH_URL}/?`
+
+文件 4: src/app/api/auth/callback/route.ts
+修改内容：
+  - Token 端点从 `${SECONDME_AUTH_URL}/token`
+  - 改为 `${SECONDME_API_BASE_URL}/api/oauth/token/code`
+  - 请求格式从 JSON 改为 application/x-www-form-urlencoded
+  - 响应解析从直接使用改为提取 data 字段
+  - 字段名从下划线改为驼峰
+
+================================================================================
+                         验证成功的标准
+================================================================================
+
+步骤 1: 访问首页
+访问 http://localhost:3000
+应该看到应用首页和"使用 SecondMe 登录"按钮
+
+步骤 2: 点击登录
+点击按钮后应跳转到：
+https://go.second.me/oauth/?client_id=...&redirect_uri=...&response_type=code...
+
+步骤 3: 授权
+在 SecondMe 页面登录并授权应用
+
+步骤 4: 回调处理
+自动重定向回：
+http://localhost:3000/api/auth/callback?code=lba_ac_xxx...&state=xxx
+
+步骤 5: Token 交换
+后端自动用 code 换取 access_token
+
+步骤 6: 获取用户信息
+使用 access_token 调用用户信息 API
+
+步骤 7: 创建会话
+将用户信息存入数据库，设置 session cookie
+
+步骤 8: 登录成功
+重定向到首页显示登录成功信息
+
+================================================================================
+                          技术参考资源
+================================================================================
+
+官方文档：
+- SecondMe OAuth2 文档: https://develop-docs.second.me/zh/docs/authentication/oauth2
+- SecondMe API 参考: https://develop-docs.second.me/zh/docs/api-reference/secondme
+- OAuth2 标准规范: https://oauth.net/2/
+
+关键端点总结：
+- 授权端点: https://go.second.me/oauth/
+- Token 交换: https://app.mindos.com/gate/lab/api/oauth/token/code
+- Token 刷新: https://app.mindos.com/gate/lab/api/oauth/token/refresh
+- 用户信息: https://app.mindos.com/gate/lab/api/secondme/user/info
+
+Token 有效期：
+- Authorization Code（授权码）: 5 分钟
+- Access Token: 2 小时（7200 秒）
+- Refresh Token: 30 天
+
+支持权限（scopes）：
+- user.info: 用户基础信息
+- user.info.shades: 用户兴趣标签
+- user.info.softmemory: 用户软记忆
+- note.add: 添加笔记
+- chat: 聊天功能
+- voice: 语音功能
+
+================================================================================
+                         给其他 AI 的建议
+================================================================================
+
+建议 1: 在集成任何第三方 OAuth 时，先阅读官方文档
+不要依赖代码生成工具的默认配置
+
+建议 2: 遇到 404 错误时，检查 URL 拼接
+打印最终 URL，与官方文档对比
+
+建议 3: 遇到 400/422 错误时，检查请求格式
+确认 Content-Type 和 body 格式是否匹配
+
+建议 4: 遇到 undefined 字段时，检查响应结构
+打印完整响应，确认字段名和嵌套结构
+
+建议 5: 遇到认证失败时，检查环境变量
+确认所有配置正确，服务器已重启
+
+建议 6: 保持代码和文档同步
+当官方文档更新时，及时检查并更新代码
+
+建议 7: 编写详细的错误日志
+记录请求 URL、响应状态、响应体等关键信息
+
+建议 8: 使用 TypeScript 类型定义
+为 API 响应定义明确的类型，减少字段名错误
+
+建议 9: 测试时使用官方提供的测试工具
+确认凭证和配置正确后再编写代码
+
+建议 10: 记录每次集成的配置差异
+不同服务提供商可能有细微差别
+
+================================================================================
+                            文档元信息
+================================================================================
+
+文档标题: SecondMe OAuth 集成问题修复总结
+创建日期: 2025-02-10
+技术栈: Next.js 16 + TypeScript + Prisma + PostgreSQL
+修复者: Claude (Anthropic)
+问题状态: 已解决
+文档版本: 1.0
+
+本文档旨在帮助其他 AI 助手在遇到类似问题时，能够快速理解问题本质
+并找到解决方案。所有代码示例都经过实际验证，可以直接参考使用。
+
+本文档不包含任何特定业务或项目信息，可作为通用技术参考分享。
+
+================================================================================
