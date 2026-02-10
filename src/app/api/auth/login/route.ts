@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     state,
   });
 
-  const authUrl = `${process.env.SECONDME_AUTH_URL}/oauth/authorize?${params}`;
+  const authUrl = `${process.env.SECONDME_AUTH_URL}/?${params}`;
 
   return NextResponse.redirect(authUrl);
 }

@@ -23,35 +23,47 @@ export async function GET(request: NextRequest) {
 
   try {
     // 交换 access_token
+    // 注意：必须使用 application/x-www-form-urlencoded 格式
+    const params = new URLSearchParams({
+      grant_type: 'authorization_code',
+      code,
+      redirect_uri: process.env.SECONDME_REDIRECT_URI!,
+      client_id: process.env.SECONDME_CLIENT_ID!,
+      client_secret: process.env.SECONDME_CLIENT_SECRET!,
+    });
+
     const tokenResponse = await fetch(
-      `${process.env.SECONDME_AUTH_URL}/oauth/token`,
+      `${process.env.SECONDME_API_BASE_URL}/api/oauth/token/code`,
       {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: JSON.stringify({
-          client_id: process.env.SECONDME_CLIENT_ID,
-          client_secret: process.env.SECONDME_CLIENT_SECRET,
-          code,
-          grant_type: 'authorization_code',
-          redirect_uri: process.env.SECONDME_REDIRECT_URI,
-        }),
+        body: params.toString(),
       }
     );
 
     if (!tokenResponse.ok) {
-      throw new Error('Failed to exchange token');
+      const errorText = await tokenResponse.text();
+      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      throw new Error(`Failed to exchange token: ${tokenResponse.status}`);
     }
 
-    const tokenData = await tokenResponse.json();
+    const tokenResult = await tokenResponse.json();
+
+    // SecondMe API 响应格式：{ code: 0, data: { accessToken, refreshToken, expiresIn, ... } }
+    if (tokenResult.code !== 0) {
+      throw new Error(`Token error: ${tokenResult.message || 'Unknown error'}`);
+    }
+
+    const tokenData = tokenResult.data;
 
     // 获取用户信息
     const userResponse = await fetch(
       `${process.env.SECONDME_API_BASE_URL}/api/secondme/user/info`,
       {
         headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
+          Authorization: `Bearer ${tokenData.accessToken}`,
         },
       }
     );
@@ -72,15 +84,15 @@ export async function GET(request: NextRequest) {
     const user = await prisma.user.upsert({
       where: { secondmeUserId: userInfo.id },
       update: {
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),
       },
       create: {
         secondmeUserId: userInfo.id,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        tokenExpiresAt: new Date(Date.now() + tokenData.expires_in * 1000),
+        accessToken: tokenData.accessToken,
+        refreshToken: tokenData.refreshToken,
+        tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),
       },
     });
 
