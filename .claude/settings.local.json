@@ -19,7 +19,30 @@
       "Bash(powershell.exe:*)",
       "Bash(cmd.exe /C \"taskkill /F /PID 4296\")",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "mcp__mind-map__create_mindmap",
+      "mcp__mind-map__update_mindmap",
+      "mcp__mind-map__list_mindmaps",
+      "mcp__mind-map__get_mindmap",
+      "Bash(python:*)",
+      "Bash(uvx python:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(npx prisma generate:*)",
+      "Bash(npx prisma validate:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx prisma db pull:*)",
+      "Bash(npx prisma migrate dev:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"yes\" npx prisma migrate reset:*)",
+      "Bash(npx next lint:*)",
+      "Bash(cmd:*)",
+      "Bash(dir:*)",
+      "Bash(powershell:*)",
+      "Bash(pnpm install:*)",
+      "Bash(curl:*)",
+      "Bash(pnpm add:*)",
+      "Bash(git diff:*)"
     ]
   }
 }

@@ -11,6 +11,7 @@ import { prisma } from '@/lib/prisma';
  */
 export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser();
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
@@ -38,16 +39,57 @@ export async function GET(request: NextRequest) {
         },
         responses: {
           select: {
+            id: true,
+            userId: true,
             operatorType: true,
+            createdAt: true,
           },
         },
       },
     });
 
-    // 统计每个投票的人类和 AI 参与数
+    // 获取用户的所有投票记录（用于检查是否已投票）
+    let userVoteRecords: Array<{ voteId: string; operatorType: string; createdAt: Date }> = [];
+    if (user) {
+      userVoteRecords = await prisma.voteResponse.findMany({
+        where: { userId: user.id },
+        select: {
+          voteId: true,
+          operatorType: true,
+          createdAt: true,
+        },
+      });
+    }
+
+    // 统计每个投票的人类和 AI 参与数，并检查用户是否已投票
     const votesWithStats = votes.map((vote) => {
-      const humanCount = vote.responses.filter((r) => r.operatorType === 'human').length;
-      const aiCount = vote.responses.filter((r) => r.operatorType === 'ai').length;
+      // 按 operatorType 统计，每个用户每种类型取最新的一条
+      const latestByUser = new Map<string, { createdAt: Date; operatorType: string }>();
+      vote.responses.forEach((r) => {
+        const key = `${r.userId}-${r.operatorType}`;
+        const existing = latestByUser.get(key);
+        if (!existing || r.createdAt > existing.createdAt) {
+          latestByUser.set(key, { createdAt: r.createdAt, operatorType: r.operatorType });
+        }
+      });
+
+      const uniqueResponses = Array.from(latestByUser.values());
+      const humanCount = uniqueResponses.filter((r) => r.operatorType === 'human').length;
+      const aiCount = uniqueResponses.filter((r) => r.operatorType === 'ai').length;
+
+      // 检查当前用户是否已投票
+      let userVoted = false;
+      let userHasVotedAsHuman = false;
+      let userHasVotedAsAI = false;
+
+      if (user) {
+        const userVotesForThisVote = userVoteRecords.filter((r) => r.voteId === vote.id);
+        userHasVotedAsHuman = userVotesForThisVote.some((r) => r.operatorType === 'human');
+        userHasVotedAsAI = userVotesForThisVote.some((r) => r.operatorType === 'ai');
+
+        // 用户已投过票（人类或 AI）就标记为已投票
+        userVoted = userHasVotedAsHuman || userHasVotedAsAI;
+      }
 
       return {
         ...vote,
@@ -56,6 +98,9 @@ export async function GET(request: NextRequest) {
           ai: aiCount,
           total: humanCount + aiCount,
         },
+        userVoted,
+        userHasVotedAsHuman,
+        userHasVotedAsAI,
       };
     });
 
@@ -167,6 +212,60 @@ export async function POST(request: NextRequest) {
         createdBy: user.id,
       },
     });
+
+    // Event 2: 创建投票后，为所有已授权用户添加自动投票任务
+    try {
+      // 获取所有已授权用户（有 accessToken 的用户）
+      const authorizedUsers = await prisma.user.findMany({
+        where: {
+          accessToken: { not: null },
+        },
+        select: { id: true },
+      });
+
+      if (authorizedUsers.length > 0) {
+        // 获取已存在的任务（用于去重）
+        const existingJobs = await prisma.autoVoteJob.findMany({
+          where: {
+            voteId: vote.id,
+            userId: { in: authorizedUsers.map((u) => u.id) },
+          },
+          select: { userId: true, status: true },
+        });
+
+        // 已完成的任务对应的用户 ID
+        const completedUserIds = new Set(
+          existingJobs.filter((j) => j.status === 'completed').map((j) => j.userId)
+        );
+
+        // 待处理或处理中的任务对应的用户 ID
+        const pendingUserIds = new Set(
+          existingJobs.filter((j) => j.status === 'pending' || j.status === 'processing').map((j) => j.userId)
+        );
+
+        // 需要创建任务的用户：已授权用户中，没有已完成任务且没有待处理任务的
+        const usersToCreateJobs = authorizedUsers.filter(
+          (u) => !completedUserIds.has(u.id) && !pendingUserIds.has(u.id)
+        );
+
+        if (usersToCreateJobs.length > 0) {
+          await prisma.autoVoteJob.createMany({
+            data: usersToCreateJobs.map((u) => ({
+              userId: u.id,
+              voteId: vote.id,
+              status: 'pending',
+              priority: 0,
+            })),
+            skipDuplicates: true,
+          });
+
+          console.log(`[CreateVote] 为 ${usersToCreateJobs.length} 个用户创建自动投票任务`);
+        }
+      }
+    } catch (error) {
+      console.error('[CreateVote] 创建自动投票任务失败:', error);
+      // 不影响投票创建流程，继续返回成功
+    }
 
     return NextResponse.json({
       code: 0,

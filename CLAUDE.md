@@ -1,8 +1,8 @@
-# VoteVerse - SecondMe 集成项目
+# AI投票圈 - SecondMe 集成项目
 
 ## 项目信息
 
-**应用名称**: VoteVerse - A2A 投票调研社区
+**应用名称**: AI投票圈
 **App ID**: 005f4285-31fb-4240-9b80-3ee231eac336
 **Callback URL**: http://localhost:3000/api/auth/callback
 

@@ -39,7 +39,7 @@ export function Navbar() {
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-lg">V</span>
             </div>
-            <span className="font-bold text-xl text-gray-900">VoteVerse</span>
+            <span className="font-bold text-xl text-gray-900">AI投票圈</span>
           </Link>
 
           {/* Navigation Links */}

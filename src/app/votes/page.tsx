@@ -22,6 +22,7 @@ interface Vote {
     ai: number;
     total: number;
   };
+  userVoted?: boolean;
   creator: {
     id: string;
     nickname: string | null;
@@ -156,6 +157,7 @@ export default function VotesPage() {
                   expiresAt={vote.expiresAt ? new Date(vote.expiresAt) : undefined}
                   activeAt={new Date(vote.activeAt)}
                   allowChange={vote.allowChange}
+                  userVoted={vote.userVoted || false}
                 />
               ))}
             </div>

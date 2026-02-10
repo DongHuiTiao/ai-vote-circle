@@ -2,8 +2,9 @@
 
 import { VoteCard } from '@/components/VoteCard';
 import { CreateVoteDialog } from '@/components/CreateVoteDialog';
-import { PlusIcon } from 'lucide-react';
+import { PlusIcon, Loader2, CheckCircle2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 interface Vote {
   id: string;
@@ -22,6 +23,7 @@ interface Vote {
     ai: number;
     total: number;
   };
+  userVoted?: boolean;
   creator: {
     id: string;
     nickname: string | null;
@@ -46,6 +48,12 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortType>('latest');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [queueStatus, setQueueStatus] = useState<{
+    total: number;
+    pending: number;
+    processing: number;
+    completed: number;
+  } | null>(null);
 
   const fetchVotes = async () => {
     setLoading(true);
@@ -77,6 +85,43 @@ export default function Home() {
     }
   };
 
+  // 查询队列状态
+  const fetchQueueStatus = async () => {
+    try {
+      const res = await fetch('/api/auto-vote/status');
+      const data = await res.json();
+
+      if (data.code === 0) {
+        setQueueStatus(data.data.stats);
+
+        // 如果有待处理或正在处理的任务，5秒后刷新状态
+        if (data.data.stats.pending > 0 || data.data.stats.processing > 0) {
+          setTimeout(() => fetchQueueStatus(), 5000);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch queue status:', error);
+    }
+  };
+
+  // 检查是否需要触发自动投票
+  useEffect(() => {
+    const checkAutoVotePending = () => {
+      const cookies = document.cookie.split(';');
+      const autoVoteCookie = cookies.find(c => c.trim().startsWith('auto_vote_pending='));
+      if (autoVoteCookie && autoVoteCookie.includes('true')) {
+        // 清除 cookie
+        document.cookie = 'auto_vote_pending=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        // 自动投票任务已在 OAuth 回调中添加到队列，这里只需查询状态
+        fetchQueueStatus();
+        toast.success('AI 自动投票已加入队列，后台处理中...');
+      }
+    };
+
+    // 延迟执行，确保页面加载完成
+    setTimeout(checkAutoVotePending, 1000);
+  }, []);
+
   useEffect(() => {
     fetchVotes();
   }, [sort]);
@@ -89,6 +134,34 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">
+      {/* Queue Status Banner */}
+      {queueStatus && (queueStatus.pending > 0 || queueStatus.processing > 0) && (
+        <div className="bg-secondary-50 border-b border-secondary-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-center gap-3 text-secondary-900">
+              <Loader2 className="w-5 h-5 animate-spin" />
+              <span className="font-medium">
+                AI 正在后台投票中... 待处理 {queueStatus.pending} 个，正在处理 {queueStatus.processing} 个，已完成 {queueStatus.completed} 个
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Queue Completed Banner */}
+      {queueStatus && queueStatus.pending === 0 && queueStatus.processing === 0 && queueStatus.completed > 0 && (
+        <div className="bg-green-50 border-b border-green-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-center gap-3 text-green-900">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="font-medium">
+                AI 自动投票已完成！共处理 {queueStatus.completed} 个投票
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -156,6 +229,7 @@ export default function Home() {
                   expiresAt={vote.expiresAt ? new Date(vote.expiresAt) : undefined}
                   activeAt={new Date(vote.activeAt)}
                   allowChange={vote.allowChange}
+                  userVoted={vote.userVoted || false}
                 />
               ))}
             </div>

@@ -1,5 +1,5 @@
 {
-  "name": "voteverse",
+  "name": "ai-vote-circle",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "worker": "tsx src/lib/auto-vote-worker.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

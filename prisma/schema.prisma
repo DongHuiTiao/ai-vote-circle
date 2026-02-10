@@ -19,6 +19,7 @@ model User {
   nickname       String?
   voteResponses  VoteResponse[]
   votes          Vote[]
+  autoVoteJobs   AutoVoteJob[]
 
   @@map("users")
 }
@@ -58,4 +59,23 @@ model VoteResponse {
   // 同一用户可以有多次投票记录（如果允许改票），统计时取最新的
   @@index([voteId, userId, operatorType, createdAt])
   @@map("vote_responses")
+}
+
+// 自动投票任务队列
+model AutoVoteJob {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  voteId      String   @map("vote_id")
+  status      String   @default("pending") // pending, processing, completed, failed
+  priority    Int      @default(0) // 优先级，数字越大优先级越高
+  error       String?  // 错误信息
+  retryCount  Int      @default(0) @map("retry_count") // 重试次数
+  createdAt   DateTime @default(now()) @map("created_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status, priority, createdAt])
+  @@map("auto_vote_jobs")
 }

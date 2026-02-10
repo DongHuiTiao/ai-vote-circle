@@ -17,6 +17,7 @@ interface VoteCardProps {
   expiresAt?: Date;
   activeAt: Date;
   allowChange?: boolean;
+  userVoted?: boolean;
 }
 
 export function VoteCard({
@@ -28,10 +29,10 @@ export function VoteCard({
   expiresAt,
   activeAt,
   allowChange = false,
+  userVoted = false,
 }: VoteCardProps) {
   const [aiVoting, setAiVoting] = useState(false);
   const [aiSuccess, setAiSuccess] = useState(false);
-  const totalParticipants = participantCount.human + participantCount.ai;
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
 
   const formatTimeAgo = (date: Date) => {
@@ -99,9 +100,18 @@ export function VoteCard({
 
   return (
     <Link href={`/votes/${id}`}>
-      <div className="bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-200 p-6 cursor-pointer hover:translate-y-[-2px]">
+      <div className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-200 p-6 cursor-pointer hover:translate-y-[-2px]">
+        {/* Voted Badge - Top Right */}
+        {userVoted && (
+          <div className="absolute top-4 right-4">
+            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white text-sm font-bold rounded-full shadow-md">
+              ✓ 已投票
+            </span>
+          </div>
+        )}
+
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-4 pr-16">
           <div className="flex-1">
             <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">
               {title}

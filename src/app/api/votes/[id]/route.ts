@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
@@ -7,6 +8,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
+    const user = await getCurrentUser();
 
     // 1. 查询投票基本信息
     const vote = await prisma.vote.findUnique({
@@ -130,7 +132,29 @@ export async function GET(
         totalVotes > 0 ? (stats[key].total / totalVotes) * 100 : 0;
     });
 
-    // 4. 返回数据
+    // 4. 检查当前用户的投票状态
+    let userVoted = false;
+    let userHasVotedAsHuman = false;
+    let userHasVotedAsAI = false;
+
+    if (user) {
+      // 检查人类投票
+      const humanVote = latestResponses.find(
+        (r) => r.userId === user.id && r.operatorType === 'human'
+      );
+      userHasVotedAsHuman = !!humanVote;
+
+      // 检查 AI 投票
+      const aiVote = latestResponses.find(
+        (r) => r.userId === user.id && r.operatorType === 'ai'
+      );
+      userHasVotedAsAI = !!aiVote;
+
+      // 用户已投过票（人类或 AI）就标记为已投票
+      userVoted = userHasVotedAsHuman || userHasVotedAsAI;
+    }
+
+    // 5. 返回数据
     return NextResponse.json({
       code: 0,
       data: {
@@ -138,6 +162,9 @@ export async function GET(
         stats,
         responses,
         totalVotes,
+        userVoted,
+        userHasVotedAsHuman,
+        userHasVotedAsAI,
       },
     });
   } catch (error) {

@@ -122,7 +122,55 @@ export async function GET(request: NextRequest) {
     // 删除 oauth_state cookie
     cookieStore.delete('oauth_state');
 
-    // 重定向到首页
+    // 自动将投票任务加入队列（后台处理）
+    try {
+      // 获取所有投票
+      const allVotes = await prisma.vote.findMany({
+        select: { id: true },
+      });
+
+      // 获取用户已投的 AI 投票
+      const userAIVotes = await prisma.voteResponse.findMany({
+        where: {
+          userId: user.id,
+          operatorType: 'ai',
+        },
+        select: { voteId: true },
+      });
+
+      const votedVoteIds = new Set(userAIVotes.map((v) => v.voteId));
+
+      // 过滤出还没投过的投票
+      const votesToProcess = allVotes.filter((vote) => !votedVoteIds.has(vote.id));
+
+      if (votesToProcess.length > 0) {
+        // 批量创建任务到队列
+        await prisma.autoVoteJob.createMany({
+          data: votesToProcess.map((vote) => ({
+            userId: user.id,
+            voteId: vote.id,
+            status: 'pending',
+            priority: 0,
+          })),
+          skipDuplicates: true,
+        });
+
+        console.log(`[OAuth] 为用户 ${user.id} 创建了 ${votesToProcess.length} 个自动投票任务`);
+
+        // 设置标记，告诉前端查询队列状态
+        cookieStore.set('auto_vote_pending', 'true', {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60,
+        });
+      }
+    } catch (error) {
+      console.error('[OAuth] 创建自动投票任务失败:', error);
+      // 不影响登录流程，继续重定向
+    }
+
+    // 立即重定向到首页
     return NextResponse.redirect(new URL('/', request.url));
   } catch (error) {
     console.error('OAuth callback error:', error);

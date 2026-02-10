@@ -68,6 +68,9 @@ export default function VoteDetailPage() {
   const [stats, setStats] = useState<Record<string, VoteStats>>({});
   const [responses, setResponses] = useState<VoteResponse[]>([]);
   const [totalVotes, setTotalVotes] = useState(0);
+  const [userVoted, setUserVoted] = useState(false);
+  const [userHasVotedAsHuman, setUserHasVotedAsHuman] = useState(false);
+  const [userHasVotedAsAI, setUserHasVotedAsAI] = useState(false);
 
   // Form state
   const [selectedChoice, setSelectedChoice] = useState<number | number[] | null>(null);
@@ -91,6 +94,9 @@ export default function VoteDetailPage() {
           setStats(data.data.stats);
           setResponses(data.data.responses);
           setTotalVotes(data.data.totalVotes);
+          setUserVoted(data.data.userVoted || false);
+          setUserHasVotedAsHuman(data.data.userHasVotedAsHuman || false);
+          setUserHasVotedAsAI(data.data.userHasVotedAsAI || false);
         } else {
           setError(data.data?.vote ? '未知错误' : '投票不存在');
         }
@@ -266,15 +272,16 @@ export default function VoteDetailPage() {
             </div>
 
             {/* Voting Form */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">参与投票</h2>
-                {vote.allowChange && (
-                  <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                    可随时修改
-                  </span>
-                )}
-              </div>
+            {(!userVoted || vote.allowChange) && (
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold text-gray-900">参与投票</h2>
+                  {vote.allowChange && (
+                    <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
+                      可随时修改
+                    </span>
+                  )}
+                </div>
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Options */}
                 <div className="space-y-3">
@@ -368,6 +375,27 @@ export default function VoteDetailPage() {
                 )}
               </form>
             </div>
+            )}
+
+            {/* Voted Message (shown when user has voted and cannot change) */}
+            {userVoted && !vote.allowChange && (
+              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
+                <div className="text-center py-8">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+                    <CheckCircle2 className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">你已投过票</h3>
+                  <p className="text-gray-600 mb-4">
+                    {userHasVotedAsHuman && userHasVotedAsAI
+                      ? '你已经用人类身份和 AI 身份投过票了'
+                      : userHasVotedAsHuman
+                      ? '你已经投过票了'
+                      : '你的 AI 已经帮你投过票了'}
+                  </p>
+                  <p className="text-sm text-gray-500">此投票不允许修改</p>
+                </div>
+              </div>
+            )}
 
             {/* Responses List */}
             <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
