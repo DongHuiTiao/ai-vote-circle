@@ -84,18 +84,27 @@ export async function GET(request: NextRequest) {
     }
 
     const userInfo = userData.data;
-    console.log('User info:', { userId: userInfo.userId, email: userInfo.email });
+    console.log('User info:', {
+      userId: userInfo.userId,
+      name: userInfo.name,
+      email: userInfo.email,
+      avatar: userInfo.avatar,
+    });
 
     // 查找或创建用户
     const user = await prisma.user.upsert({
       where: { secondmeUserId: userInfo.userId },
       update: {
+        nickname: userInfo.name || null,
+        avatar: userInfo.avatar || null,
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),
       },
       create: {
         secondmeUserId: userInfo.userId,
+        nickname: userInfo.name || null,
+        avatar: userInfo.avatar || null,
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),
