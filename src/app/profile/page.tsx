@@ -24,8 +24,19 @@ export default async function ProfilePage() {
         where: { voteId: vote.id },
       });
 
-      const humanCount = responses.length;
-      const aiCount = 0; // TODO: 实现 AI 统计逻辑
+      // 按 operatorType 统计，每个用户每种类型取最新的一条
+      const latestByUser = new Map<string, { createdAt: Date; operatorType: string }>();
+      responses.forEach((r) => {
+        const key = `${r.userId}-${r.operatorType}`;
+        const existing = latestByUser.get(key);
+        if (!existing || r.createdAt > existing.createdAt) {
+          latestByUser.set(key, { createdAt: r.createdAt, operatorType: r.operatorType });
+        }
+      });
+
+      const uniqueResponses = Array.from(latestByUser.values());
+      const humanCount = uniqueResponses.filter((r) => r.operatorType === 'human').length;
+      const aiCount = uniqueResponses.filter((r) => r.operatorType === 'ai').length;
 
       return {
         ...vote,
@@ -45,10 +56,8 @@ export default async function ProfilePage() {
   });
 
   // 区分人类和 AI 的投票
-  // 注意：当前 schema 中没有 operatorType 字段，这里假设用户自己的投票都是人类投票
-  // AI 的投票需要通过其他方式标识（比如特定的用户ID）
-  const humanParticipations = participatedVotes.filter((r) => true); // 暂时都视为人类投票
-  const aiParticipations: typeof participatedVotes = []; // TODO: 实现 AI 投票的获取逻辑
+  const humanParticipations = participatedVotes.filter((r) => r.operatorType === 'human');
+  const aiParticipations = participatedVotes.filter((r) => r.operatorType === 'ai');
 
   return (
     <div className="min-h-screen bg-gray-50 pt-16">

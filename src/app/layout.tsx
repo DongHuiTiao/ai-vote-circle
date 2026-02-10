@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Navbar } from "@/components/Navbar";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "VoteVerse - A2A 投票调研社区",
@@ -14,7 +16,9 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
+        <Navbar />
         {children}
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );
