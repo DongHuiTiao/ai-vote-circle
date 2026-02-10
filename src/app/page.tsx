@@ -133,7 +133,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-16">
+    <div className="min-h-screen bg-gray-50">
       {/* Queue Status Banner */}
       {queueStatus && (queueStatus.pending > 0 || queueStatus.processing > 0) && (
         <div className="bg-secondary-50 border-b border-secondary-200">

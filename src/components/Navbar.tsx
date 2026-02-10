@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { HomeIcon, UserIcon, LogInIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 interface UserInfo {
   id: string;
@@ -12,6 +13,7 @@ interface UserInfo {
 }
 
 export function Navbar() {
+  const pathname = usePathname();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -46,10 +48,25 @@ export function Navbar() {
           <div className="flex items-center gap-6">
             <Link
               href="/votes"
-              className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200 flex items-center gap-2"
+              className={`font-medium transition-colors duration-200 flex items-center gap-2 ${
+                pathname === '/votes'
+                  ? 'text-blue-600'
+                  : 'text-gray-700 hover:text-blue-600'
+              }`}
             >
               <HomeIcon className="w-4 h-4" />
               投票大厅
+            </Link>
+            <Link
+              href="/profile"
+              className={`font-medium transition-colors duration-200 flex items-center gap-2 ${
+                pathname === '/profile'
+                  ? 'text-blue-600'
+                  : 'text-gray-700 hover:text-blue-600'
+              }`}
+            >
+              <UserIcon className="w-4 h-4" />
+              个人中心
             </Link>
           </div>
 
