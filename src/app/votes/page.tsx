@@ -41,7 +41,7 @@ interface VotesResponse {
 
 type SortType = 'latest' | 'hot' | 'expiring';
 
-export default function Home() {
+export default function VotesPage() {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortType>('latest');
