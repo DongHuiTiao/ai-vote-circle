@@ -51,12 +51,15 @@ export async function GET(request: NextRequest) {
 
     const tokenResult = await tokenResponse.json();
 
+    console.log('Token response:', JSON.stringify(tokenResult, null, 2));
+
     // SecondMe API 响应格式：{ code: 0, data: { accessToken, refreshToken, expiresIn, ... } }
     if (tokenResult.code !== 0) {
       throw new Error(`Token error: ${tokenResult.message || 'Unknown error'}`);
     }
 
     const tokenData = tokenResult.data;
+    console.log('Token data received:', { hasAccessToken: !!tokenData.accessToken, expiresIn: tokenData.expiresIn });
 
     // 获取用户信息
     const userResponse = await fetch(
@@ -74,22 +77,25 @@ export async function GET(request: NextRequest) {
 
     const userData = await userResponse.json();
 
+    console.log('User info response:', JSON.stringify(userData, null, 2));
+
     if (userData.code !== 0) {
       throw new Error('Invalid user data response');
     }
 
     const userInfo = userData.data;
+    console.log('User info:', { userId: userInfo.userId, email: userInfo.email });
 
     // 查找或创建用户
     const user = await prisma.user.upsert({
-      where: { secondmeUserId: userInfo.id },
+      where: { secondmeUserId: userInfo.userId },
       update: {
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),
       },
       create: {
-        secondmeUserId: userInfo.id,
+        secondmeUserId: userInfo.userId,
         accessToken: tokenData.accessToken,
         refreshToken: tokenData.refreshToken,
         tokenExpiresAt: new Date(Date.now() + tokenData.expiresIn * 1000),

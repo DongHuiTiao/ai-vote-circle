@@ -1,0 +1,310 @@
+================================================================================
+         SecondMe API 字段命名错误 - 登录失败问题修复
+================================================================================
+
+问题描述
+================================================================================
+
+症状：用户完成 SecondMe OAuth 授权后，被重定向回应用时看到：
+http://localhost:3000/?error=auth_failed
+
+数据库中没有创建用户记录，说明 OAuth callback 处理失败。
+
+
+================================================================================
+                          问题诊断过程
+================================================================================
+
+步骤 1: 添加调试日志
+
+在 src/app/api/auth/callback/route.ts 中添加详细日志：
+
+  console.log('Token response:', JSON.stringify(tokenResult, null, 2));
+  console.log('User info response:', JSON.stringify(userData, null, 2));
+  console.log('User info:', { id: userInfo.id, email: userInfo.email });
+
+步骤 2: 查看服务器日志输出
+
+日志显示：
+--------------
+Token 交换成功 ✅
+  accessToken: "lba_at_xxx"
+  refreshToken: "lba_rt_xxx"
+  expiresIn: 604799
+
+用户信息获取成功 ✅
+  {
+    "code": 0,
+    "data": {
+      "userId": "********",      // 注意：字段名是 userId，不是 id！
+      "name": "***",
+      "email": "***********",
+      "avatar": "https://...",
+      "selfIntroduction": "...",
+      "profileCompleteness": 34,
+      "route": "***********"
+    }
+  }
+
+但是代码中使用 userInfo.id，结果是 undefined ❌
+  User info: { id: undefined, email: '***********' }
+
+步骤 3: Prisma 错误信息
+
+  PrismaClientValidationError:
+  Invalid prisma.user.upsert() invocation
+
+  Argument `where` of type UserWhereUniqueInput needs at least one
+  of `id` or `secondmeUserId` arguments.
+
+  where: {
+    secondmeUserId: undefined,   // 传入了 undefined 导致错误
+  }
+
+
+================================================================================
+                            根本原因
+================================================================================
+
+错误代码：
+  where: { secondmeUserId: userInfo.id },
+  create: { secondmeUserId: userInfo.id }
+
+问题：
+  SecondMe API 返回的用户 ID 字段名是 "userId"（驼峰命名）
+  而不是 "id"
+
+  代码中使用 userInfo.id 获取不到值，返回 undefined
+  导致 Prisma upsert 操作失败
+
+
+================================================================================
+                            解决方案
+================================================================================
+
+文件：src/app/api/auth/callback/route.ts
+
+修改前（错误）：
+--------------
+const userInfo = userData.data;
+console.log('User info:', { id: userInfo.id, email: userInfo.email });
+
+const user = await prisma.user.upsert({
+  where: { secondmeUserId: userInfo.id },      // ❌ 错误
+  update: { ... },
+  create: {
+    secondmeUserId: userInfo.id,               // ❌ 错误
+    ...
+  },
+});
+
+修改后（正确）：
+--------------
+const userInfo = userData.data;
+console.log('User info:', { userId: userInfo.userId, email: userInfo.email });
+
+const user = await prisma.user.upsert({
+  where: { secondmeUserId: userInfo.userId },  // ✅ 正确
+  update: { ... },
+  create: {
+    secondmeUserId: userInfo.userId,           // ✅ 正确
+    ...
+  },
+});
+
+
+================================================================================
+                        SecondMe 用户信息 API 响应格式
+================================================================================
+
+端点：GET /api/secondme/user/info
+
+完整响应格式：
+{
+  "code": 0,
+  "data": {
+    "userId": "********",                    // 用户唯一标识符
+    "name": "***",                      // 显示名称
+    "email": "***********",              // 邮箱或手机号
+    "avatar": "https://...",                // 头像 URL
+    "selfIntroduction": "个人简介",           // 自我介绍
+    "profileCompleteness": 34,              // 资料完整度（0-100）
+    "route": "***********"                     // 用户路由/用户名
+  }
+}
+
+重要字段说明：
+- userId: 用户唯一标识符，用于数据库关联
+- name: 用户显示名称
+- email: 可能是邮箱或手机号格式
+- route: 用户的唯一路由标识，类似用户名
+
+
+================================================================================
+                            关键经验教训
+================================================================================
+
+教训 1: 不要假设 API 字段名
+
+错误做法：
+  假设所有用户信息 API 都有 "id" 字段
+  直接使用 userInfo.id
+
+正确做法：
+  先查看官方文档确认字段名
+  或者打印完整响应查看实际结构
+  使用准确字段名 userInfo.userId
+
+教训 2: API 响应可能使用不同命名风格
+
+观察：
+  SecondMe Token 响应使用驼峰命名：
+    accessToken, refreshToken, expiresIn
+
+  SecondMe 用户信息也使用驼峰命名：
+    userId, name, email, selfIntroduction
+
+结论：
+  该 API 一致使用驼峰命名（camelCase）
+  不要混用下划线命名（snake_case）
+
+教训 3: 添加详细日志帮助调试
+
+推荐的日志点：
+  1. Token 交换后打印完整响应
+  2. 用户信息获取后打印完整响应
+  3. 关键字段值打印（如 userId, email）
+
+示例：
+  console.log('User info response:', JSON.stringify(userData, null, 2));
+  console.log('User info:', {
+    userId: userInfo.userId,
+    email: userInfo.email
+  });
+
+教训 4: Prisma 错误信息很清晰
+
+错误信息会明确指出：
+  - 哪个字段值为 undefined
+  - 期望哪些字段有值
+
+示例：
+  Argument `where` of type UserWhereUniqueInput needs at least
+  one of `id` or `secondmeUserId` arguments.
+
+这意味着 secondmeUserId 是 undefined，需要检查赋值。
+
+
+================================================================================
+                        其他 SecondMe API 字段参考
+================================================================================
+
+用户信息相关：
+- /api/secondme/user/info
+  → data.userId, data.name, data.email, data.avatar
+
+兴趣标签（Shades）：
+- /api/secondme/user/shades
+  → data.shades[] 数组
+
+软记忆（Softmemory）：
+- /api/secondme/user/softmemory
+  → data.list[] 数组
+
+聊天会话列表：
+- /api/secondme/chat/session/list
+  → data.sessions[] 数组
+
+
+================================================================================
+                          修改文件清单
+================================================================================
+
+文件：src/app/api/auth/callback/route.ts
+
+修改 1（第 84 行）：
+  修改前：console.log('User info:', { id: userInfo.id, email: userInfo.email });
+  修改后：console.log('User info:', { userId: userInfo.userId, email: userInfo.email });
+
+修改 2（第 88 行）：
+  修改前：where: { secondmeUserId: userInfo.id },
+  修改后：where: { secondmeUserId: userInfo.userId },
+
+修改 3（第 95 行）：
+  修改前：secondmeUserId: userInfo.id,
+  修改后：secondmeUserId: userInfo.userId,
+
+
+================================================================================
+                          验证成功的标准
+================================================================================
+
+步骤 1: 完成授权
+在 SecondMe 页面授权应用
+
+步骤 2: 自动回调
+系统自动重定向回 http://localhost:3000/api/auth/callback?code=...
+
+步骤 3: 后端处理
+- Token 交换成功
+- 获取用户信息成功
+- 数据库创建用户记录
+
+步骤 4: 设置会话
+设置 user_id cookie
+
+步骤 5: 重定向首页
+重定向到 http://localhost:3000/
+
+步骤 6: 显示登录状态
+页面显示：
+  "欢迎回来！"
+  "你已成功登录应用"
+  "SecondMe 用户 ID: ********"
+
+数据库验证：
+  docker exec voteverse-db psql -U postgres -d voteverse -c "SELECT * FROM users;"
+
+  应该看到：
+    id              | secondme_user_id | created_at
+  ------------------+------------------+------------
+  cmxxx...         | ********          | 2025-02-10...
+
+
+================================================================================
+                            快速检查清单
+================================================================================
+
+遇到类似问题时检查：
+
+□ API 响应中的实际字段名是什么？
+  （打印完整响应查看）
+
+□ 代码中使用的字段名是否正确？
+  （区分 userId vs id）
+
+□ 是否所有使用该字段的地方都修改了？
+  （where、create、update 等）
+
+□ 是否添加了调试日志？
+  （方便下次排查）
+
+□ 数据库表中是否真的创建了记录？
+  （直接查询数据库验证）
+
+
+================================================================================
+                            文档元信息
+================================================================================
+
+文档标题: SecondMe API 字段命名错误修复
+问题字段: userInfo.id → userInfo.userId
+影响范围: OAuth Callback 用户创建流程
+修复日期: 2025-02-10
+问题状态: ✅ 已解决
+
+核心教训：
+  永远不要假设 API 字段名，查看文档或打印响应确认
+  SecondMe API 统一使用驼峰命名（camelCase）
+
+================================================================================

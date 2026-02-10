@@ -10,7 +10,16 @@
       "Bash(npm uninstall:*)",
       "Bash(set:*)",
       "Bash(cmd /c:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(netstat:*)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 161304 -Force\")",
+      "Bash(powershell.exe:*)",
+      "Bash(cmd.exe /C \"taskkill /F /PID 4296\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   }
 }
