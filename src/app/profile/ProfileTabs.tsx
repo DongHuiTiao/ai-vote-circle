@@ -133,7 +133,7 @@ export function ProfileTabs({
             description={vote.description || undefined}
             type={vote.type}
             participantCount={vote.participantCount}
-            expiresAt={vote.expiresAt}
+            expiresAt={vote.expiresAt || undefined}
             activeAt={vote.activeAt}
             createdAt={vote.createdAt}
             allowChange={vote.allowChange}
@@ -283,7 +283,7 @@ export function ProfileTabs({
             description={item.vote.description || undefined}
             type={item.vote.type}
             participantCount={item.vote.participantCount}
-            expiresAt={item.vote.expiresAt}
+            expiresAt={item.vote.expiresAt || undefined}
             activeAt={item.vote.activeAt}
             createdAt={item.vote.createdAt}
             allowChange={item.vote.allowChange}
