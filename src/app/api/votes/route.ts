@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
     });
 
     const total = await prisma.vote.count();
+    const totalPages = Math.ceil(total / limit);
 
     return NextResponse.json({
       code: 0,
@@ -126,6 +127,7 @@ export async function GET(request: NextRequest) {
         total,
         page,
         limit,
+        totalPages,
       },
     });
   } catch (error) {
