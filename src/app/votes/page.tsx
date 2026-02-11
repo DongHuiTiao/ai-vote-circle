@@ -39,6 +39,7 @@ interface VotesResponse {
     total: number;
     page: number;
     limit: number;
+    totalPages: number;
   };
 }
 
@@ -47,15 +48,25 @@ type SortType = 'newest' | 'hot' | 'active' | 'expiring';
 export default function VotesPage() {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sort, setSort] = useState<SortType>('newest');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [favoriteStatus, setFavoriteStatus] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
 
-  const fetchVotes = async () => {
-    setLoading(true);
+  const fetchVotes = async (page: number = 1, append: boolean = false) => {
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      setCurrentPage(1);
+    }
+
     try {
       const sortParam = sort === 'expiring' ? 'newest' : sort;
-      const res = await fetch(`/api/votes?sort=${sortParam}`);
+      const res = await fetch(`/api/votes?sort=${sortParam}&page=${page}&limit=20`);
       const data: VotesResponse = await res.json();
 
       if (data.code === 0) {
@@ -76,15 +87,28 @@ export default function VotesPage() {
             });
         }
 
-        setVotes(sortedVotes);
+        if (append) {
+          setVotes((prev) => [...prev, ...sortedVotes]);
+          setCurrentPage(page);
+        } else {
+          setVotes(sortedVotes);
+          setCurrentPage(1);
+        }
 
-        // 获取收藏状态
-        await fetchFavoriteStatus(sortedVotes.map((v) => v.id));
+        setTotalCount(data.data.total);
+        setHasMore(page * data.data.limit < data.data.total);
+
+        // 获取收藏状态（去重）
+        const voteIds = append
+          ? Array.from(new Set([...votes.map((v) => v.id), ...sortedVotes.map((v) => v.id)]))
+          : sortedVotes.map((v) => v.id);
+        await fetchFavoriteStatus(voteIds);
       }
     } catch (error) {
       console.error('Failed to fetch votes:', error);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -128,8 +152,14 @@ export default function VotesPage() {
     }
   };
 
+  const loadMore = () => {
+    if (!loadingMore && hasMore) {
+      fetchVotes(currentPage + 1, true);
+    }
+  };
+
   useEffect(() => {
-    fetchVotes();
+    fetchVotes(1, false);
   }, [sort]);
 
   const filterButtons: { key: SortType; label: string }[] = [
@@ -217,6 +247,26 @@ export default function VotesPage() {
                 />
               ))}
             </div>
+
+            {/* Load More Button */}
+            {hasMore && votes.length > 0 && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="px-8 py-3 bg-white border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+                >
+                  {loadingMore ? '加载中...' : '加载更多'}
+                </button>
+              </div>
+            )}
+
+            {/* No More Data Indicator */}
+            {!hasMore && votes.length > 0 && (
+              <div className="text-center mt-8 text-gray-500">
+                已加载全部 {totalCount} 个投票
+              </div>
+            )}
 
             {/* Empty State */}
             {votes.length === 0 && (
