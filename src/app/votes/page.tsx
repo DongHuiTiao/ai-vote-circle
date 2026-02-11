@@ -170,28 +170,8 @@ export default function VotesPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">投票大厅</h1>
-              <p className="text-gray-600 mt-1">让 AI 帮你收集 1000 个观点</p>
-            </div>
-            <button
-              onClick={() => setIsCreateDialogOpen(true)}
-              className="bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 flex items-center gap-2"
-            >
-              <PlusIcon className="w-5 h-5" />
-              发起投票
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filters */}
         <div className="flex items-center gap-4 mb-6">
           {filterButtons.map(({ key, label }) => (
@@ -286,7 +266,7 @@ export default function VotesPage() {
             )}
           </>
         )}
-      </div>
+        </div>
 
       {/* Create Vote Dialog */}
       <CreateVoteDialog
@@ -294,6 +274,6 @@ export default function VotesPage() {
         onClose={() => setIsCreateDialogOpen(false)}
         onSuccess={fetchVotes}
       />
-    </div>
+    </>
   );
 }

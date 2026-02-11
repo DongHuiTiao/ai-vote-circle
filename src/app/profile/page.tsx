@@ -123,6 +123,10 @@ export default async function ProfilePage() {
       const humanCount = uniqueResponses.filter((r) => r.operatorType === 'human').length;
       const aiCount = uniqueResponses.filter((r) => r.operatorType === 'ai').length;
 
+      // 检查当前用户是否投票
+      const userVotedAsHuman = responses.some(r => r.userId === user.id && r.operatorType === 'human');
+      const userVotedAsAI = responses.some(r => r.userId === user.id && r.operatorType === 'ai');
+
       return {
         ...fav,
         vote: {
@@ -131,54 +135,22 @@ export default async function ProfilePage() {
             human: humanCount,
             ai: aiCount,
           },
+          userVotedAsHuman,
+          userVotedAsAI,
         },
       };
     })
   );
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            {user.avatar ? (
-              <img
-                src={user.avatar}
-                alt={user.nickname || '用户'}
-                className="w-16 h-16 rounded-full object-cover"
-              />
-            ) : (
-              <div className="w-16 h-16 rounded-full bg-primary-500 flex items-center justify-center">
-                <span className="text-white text-2xl font-bold">
-                  {user.nickname?.[0] || user.secondmeUserId[0]}
-                </span>
-              </div>
-            )}
-            {/* User Info */}
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {user.nickname || '用户'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {createdVotesWithStats.length} 个发起的投票 · {participatedVotes.length} 次参与 · {favorites.length} 个收藏
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <ProfileTabs
-          createdVotes={createdVotesWithStats}
-          participatedVotes={participatedVotes}
-          humanParticipations={humanParticipations}
-          aiParticipations={aiParticipations}
-          favorites={favoritesWithStats}
+          createdVotes={createdVotesWithStats as any}
+          participatedVotes={participatedVotes as any}
+          humanParticipations={humanParticipations as any}
+          aiParticipations={aiParticipations as any}
+          favorites={favoritesWithStats as any}
         />
-      </div>
     </div>
   );
 }
