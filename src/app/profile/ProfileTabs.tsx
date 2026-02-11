@@ -216,6 +216,17 @@ export function ProfileTabs({
               <div className="flex items-start gap-4">
                 {/* Vote Info */}
                 <div className="flex-1 min-w-0">
+                  {/* Operator Type Badge - 放在标题前面 */}
+                  <span
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2 ${
+                      response.operatorType === 'human'
+                        ? 'bg-green-50 text-green-700'
+                        : 'bg-purple-50 text-purple-700'
+                    }`}
+                  >
+                    {response.operatorType === 'human' ? '👤 我投的' : '🤖 AI投的'}
+                  </span>
+
                   {/* Vote Title */}
                   <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
                     {response.vote.title}
@@ -238,15 +249,6 @@ export function ProfileTabs({
                   <div className="flex items-center gap-3 text-sm text-gray-500">
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded text-xs font-medium">
                       {getVoteTypeLabel(response.vote.type)}
-                    </span>
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
-                        response.operatorType === 'human'
-                          ? 'bg-green-50 text-green-700'
-                          : 'bg-purple-50 text-purple-700'
-                      }`}
-                    >
-                      {response.operatorType === 'human' ? '👤 我投的' : '🤖 AI投的'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />

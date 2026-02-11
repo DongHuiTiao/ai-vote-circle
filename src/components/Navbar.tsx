@@ -119,13 +119,13 @@ export function Navbar() {
 
         {/* 第二层：导航链接居中 */}
         <div className="flex justify-center items-center py-3 border-t border-gray-100">
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-2">
             <Link
               href="/votes"
-              className={`font-medium transition-colors duration-200 flex items-center gap-2 ${
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
                 pathname === '/votes' || pathname === '/'
-                  ? 'text-blue-600'
-                  : 'text-gray-700 hover:text-blue-600'
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
               }`}
             >
               <HomeIcon className="w-4 h-4" />
@@ -133,10 +133,10 @@ export function Navbar() {
             </Link>
             <Link
               href="/profile"
-              className={`font-medium transition-colors duration-200 flex items-center gap-2 ${
+              className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
                 pathname === '/profile'
-                  ? 'text-blue-600'
-                  : 'text-gray-700 hover:text-blue-600'
+                  ? 'bg-primary-500 text-white shadow-md'
+                  : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
               }`}
             >
               <UserIcon className="w-4 h-4" />
