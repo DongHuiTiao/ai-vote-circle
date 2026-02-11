@@ -89,7 +89,7 @@ export default function VoteDetailPage() {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'vote' | 'comments'>('vote');
+  const [activeTab, setActiveTab] = useState<'results' | 'participate' | 'comments'>('participate');
 
   // Refresh data function
   const refreshData = async () => {
@@ -269,7 +269,7 @@ export default function VoteDetailPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -316,16 +316,26 @@ export default function VoteDetailPage() {
 
       {/* Fixed Tab Navigation */}
       <div className="bg-white border-b border-gray-200 px-4 sticky top-16 z-20">
-        <div className="max-w-4xl mx-auto flex gap-1">
+        <div className="max-w-4xl mx-auto flex justify-center gap-1">
           <button
-            onClick={() => setActiveTab('vote')}
+            onClick={() => setActiveTab('participate')}
             className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
-              activeTab === 'vote'
+              activeTab === 'participate'
                 ? 'bg-primary-500 text-white shadow-md'
                 : 'text-gray-600 hover:bg-gray-100'
             }`}
           >
-            🗳️ 投票
+            🗳️ 参与投票
+          </button>
+          <button
+            onClick={() => setActiveTab('results')}
+            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+              activeTab === 'results'
+                ? 'bg-primary-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            📊 投票结果
           </button>
           <button
             onClick={() => setActiveTab('comments')}
@@ -344,10 +354,17 @@ export default function VoteDetailPage() {
         {/* Main Content Area */}
         <section className="min-h-[500px]">
             {/* Tab Content */}
-            {activeTab === 'vote' && (
+            {activeTab === 'participate' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {!userVoted ? (
-                  // 未投票时显示投票表单
+                {(!vote.allowChange && userHasVotedAsHuman) ? (
+                  // 不可改票且已投票
+                  <div className="text-center py-12">
+                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">已投票，不可改票</h2>
+                    <p className="text-gray-600">此投票不允许修改，您已经完成投票。</p>
+                  </div>
+                ) : (
+                  // 可投票或允许改票
                   <>
                     <h2 className="text-2xl font-bold text-gray-900 mb-5">🗳️ 参与投票</h2>
                     <form onSubmit={handleSubmit} className="space-y-6">
@@ -444,11 +461,26 @@ export default function VoteDetailPage() {
                       </button>
                     </form>
                   </>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'results' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                {!userHasVotedAsHuman ? (
+                  // 未投票时显示提示
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-8 h-8 text-gray-400" />
+                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">完成投票后可查看</h2>
+                    <p className="text-gray-600">请先在【参与投票】标签完成投票，然后即可查看投票结果。</p>
+                  </div>
                 ) : (
                   // 已投票显示结果
                   <>
                     <h2 className="text-2xl font-bold text-gray-900 mb-5">📊 投票结果</h2>
-                    <div className="space-y-5">
+                    <div className="space-y-5 mb-8">
                       {vote.options.map((option, index) => {
                         const stat = stats[index.toString()] || { total: 0, percentage: 0, human: 0, ai: 0 };
                         return (
@@ -481,6 +513,63 @@ export default function VoteDetailPage() {
                         );
                       })}
                     </div>
+
+                    {/* 我的投票信息 */}
+                    {responses.filter(r => r.operatorType === 'human' || r.operatorType === 'ai').length > 0 && (
+                      <div className="border-t border-gray-200 pt-6 space-y-4">
+                        <h3 className="text-lg font-bold text-gray-900">我的投票</h3>
+
+                        {/* 人类投票 */}
+                        {responses.filter(r => r.operatorType === 'human').map((response) => (
+                          <div key={response.id} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 text-xs font-bold rounded-full">
+                                <User className="w-3 h-3" aria-hidden="true" />
+                                我的投票选项和理由
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle2 className="w-4 h-4 text-primary-500" />
+                              <span className="font-medium text-gray-900">
+                                投了：{
+                                  Array.isArray(response.choice)
+                                    ? response.choice.map((i: number) => vote.options[i]).join(', ')
+                                    : vote.options[response.choice as number]
+                                }
+                              </span>
+                            </div>
+                            {response.reason && (
+                              <p className="text-sm text-gray-700">{response.reason}</p>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* AI 投票 */}
+                        {responses.filter(r => r.operatorType === 'ai').map((response) => (
+                          <div key={response.id} className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">
+                                <Bot className="w-3 h-3" aria-hidden="true" />
+                                我的 AI 的投票选项和理由
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <CheckCircle2 className="w-4 h-4 text-purple-500" />
+                              <span className="font-medium text-gray-900">
+                                投了：{
+                                  Array.isArray(response.choice)
+                                    ? response.choice.map((i: number) => vote.options[i]).join(', ')
+                                    : vote.options[response.choice as number]
+                                }
+                              </span>
+                            </div>
+                            {response.reason && (
+                              <p className="text-sm text-gray-700">{response.reason}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -558,6 +647,6 @@ export default function VoteDetailPage() {
             )}
           </section>
       </main>
-    </div>
+    </>
   );
 }
