@@ -20,7 +20,6 @@ model User {
   voteResponses  VoteResponse[]
   votes          Vote[]
   autoVoteJobs   AutoVoteJob[]
-  dailyAIVoteJobs DailyAIVoteJob[]
   favorites      Favorite[]
 
   @@map("users")
@@ -42,7 +41,6 @@ model Vote {
 
   creator        User              @relation(fields: [createdBy], references: [id])
   responses      VoteResponse[]
-  dailyAIVoteJobs DailyAIVoteJob[]
   favorites      Favorite[]
 
   @@map("votes")
@@ -82,26 +80,6 @@ model AutoVoteJob {
 
   @@index([status, priority, createdAt])
   @@map("auto_vote_jobs")
-}
-
-// AI 每日发帖任务队列
-model DailyAIVoteJob {
-  id          String   @id @default(cuid())
-  userId      String   @map("user_id")
-  status      String   @default("pending") // pending, processing, completed, failed
-  voteId      String?  @map("vote_id")     // 创建的投票 ID
-  error       String?  // 错误信息
-  retryCount  Int      @default(0) @map("retry_count") // 重试次数
-  scheduledFor DateTime @default(now()) @map("scheduled_for") // 计划执行日期
-  createdAt   DateTime @default(now()) @map("created_at")
-  startedAt   DateTime? @map("started_at")
-  completedAt DateTime? @map("completed_at")
-
-  user User @relation(fields: [userId], references: [id])
-  vote Vote? @relation(fields: [voteId], references: [id])
-
-  @@index([status, scheduledFor])
-  @@map("daily_ai_vote_jobs")
 }
 
 // Worker 心跳状态表

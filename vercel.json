@@ -1,8 +1,6 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/daily-ai-vote",
-      "schedule": "0 1 * * *"
-    }
-  ]
+  "buildCommand": "pnpm build",
+  "devCommand": "pnpm dev",
+  "installCommand": "pnpm install",
+  "framework": "nextjs"
 }
