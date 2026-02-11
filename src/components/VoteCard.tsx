@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { UsersIcon, ClockIcon, CheckCircle2, RefreshCw, Calendar, Activity } from 'lucide-react';
+import { UsersIcon, ClockIcon, CheckCircle2, RefreshCw, Calendar, Activity, Star } from 'lucide-react';
 
 interface VoteCardProps {
   id: string;
@@ -23,6 +23,8 @@ interface VoteCardProps {
     nickname: string | null;
     avatar: string | null;
   };
+  isFavorited?: boolean;
+  onToggleFavorite?: (e: React.MouseEvent) => void;
 }
 
 export function VoteCard({
@@ -38,9 +40,17 @@ export function VoteCard({
   userVotedAsHuman = false,
   userVotedAsAI = false,
   creator,
+  isFavorited = false,
+  onToggleFavorite,
 }: VoteCardProps) {
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
   const totalParticipants = participantCount.human + participantCount.ai;
+
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onToggleFavorite?.(e);
+  };
 
   const formatTimeAgo = (date: Date) => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
@@ -53,17 +63,33 @@ export function VoteCard({
     return `${days}天前`;
   };
 
+  const formatTimeLeft = (date: Date) => {
+    const timeLeft = new Date(date).getTime() - new Date().getTime();
+    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+
+    if (daysLeft >= 1) {
+      return `${daysLeft}天后截止`;
+    }
+
+    const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+    if (hoursLeft >= 1) {
+      return `${hoursLeft}小时后截止`;
+    }
+
+    const minutesLeft = Math.floor(timeLeft / (1000 * 60));
+    if (minutesLeft >= 1) {
+      return `${minutesLeft}分钟后截止`;
+    }
+
+    return '即将截止';
+  };
+
   const getTimeStatus = () => {
     if (isExpired) {
       return { text: '已截止', color: 'text-red-600', bg: 'bg-red-50', icon: ClockIcon };
     }
     if (expiresAt) {
-      const timeLeft = new Date(expiresAt).getTime() - new Date().getTime();
-      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
-      if (hoursLeft < 24) {
-        return { text: `${hoursLeft}小时后截止`, color: 'text-orange-600', bg: 'bg-orange-50', icon: ClockIcon };
-      }
-      return { text: formatTimeAgo(expiresAt), color: 'text-gray-600', bg: 'bg-gray-50', icon: ClockIcon };
+      return { text: formatTimeLeft(expiresAt), color: 'text-orange-600', bg: 'bg-orange-50', icon: ClockIcon };
     }
     return { text: '长期收集', color: 'text-green-600', bg: 'bg-green-50', icon: RefreshCw };
   };
@@ -162,10 +188,29 @@ export function VoteCard({
               </div>
             </div>
 
-            {/* Right: Active Time */}
-            <div className="flex items-center gap-1.5 text-gray-500">
-              <Activity className="w-3.5 h-3.5" />
-              <span>活跃 {formatTimeAgo(activeAt)}</span>
+            {/* Right: Favorite + Active Time */}
+            <div className="flex items-center gap-2">
+              {/* Favorite Button */}
+              {onToggleFavorite && (
+                <button
+                  onClick={handleFavoriteClick}
+                  className={`px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1.5 ${
+                    isFavorited
+                      ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
+                      : 'text-gray-500 hover:bg-gray-100'
+                  }`}
+                  title={isFavorited ? '取消收藏' : '收藏'}
+                >
+                  <Star className={`w-3.5 h-3.5 flex-shrink-0 ${isFavorited ? 'fill-current' : ''}`} />
+                  <span className="text-sm font-medium">
+                    {isFavorited ? '已收藏' : '收藏'}
+                  </span>
+                </button>
+              )}
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Activity className="w-3.5 h-3.5" />
+                <span>活跃 {formatTimeAgo(activeAt)}</span>
+              </div>
             </div>
           </div>
         </div>
