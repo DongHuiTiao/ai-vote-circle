@@ -20,6 +20,7 @@ export default async function ProfilePage() {
       description: true,
       type: true,
       options: true,
+      operatorType: true,
       allowChange: true,
       expiresAt: true,
       activeAt: true,

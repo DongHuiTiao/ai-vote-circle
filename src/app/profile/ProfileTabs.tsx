@@ -27,6 +27,7 @@ interface Vote {
   title: string;
   description: string | null;
   type: 'single' | 'multiple';
+  operatorType: string;
   allowChange?: boolean;
   expiresAt: Date | null;
   activeAt: Date;
@@ -65,6 +66,7 @@ export function ProfileTabs({
 }: ProfileTabsProps) {
   const [activeTab, setActiveTab] = useState<'created' | 'participated' | 'favorites'>('created');
   const [participatedSubTab, setParticipatedSubTab] = useState<'all' | 'ai' | 'human'>('all');
+  const [createdSubTab, setCreatedSubTab] = useState<'all' | 'human' | 'ai'>('all');
   const [favoriteStatus, setFavoriteStatus] = useState<Record<string, boolean>>({});
 
   // 初始化收藏状态
@@ -104,28 +106,48 @@ export function ProfileTabs({
   };
 
   const renderCreatedVotes = () => {
-    if (createdVotes.length === 0) {
+    // 根据 createdSubTab 过滤投票
+    const getDisplayVotes = () => {
+      switch (createdSubTab) {
+        case 'human':
+          return createdVotes.filter((v) => v.operatorType === 'human');
+        case 'ai':
+          return createdVotes.filter((v) => v.operatorType === 'ai');
+        default:
+          return createdVotes;
+      }
+    };
+
+    const displayVotes = getDisplayVotes();
+
+    if (displayVotes.length === 0) {
       return (
         <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
           <FileText className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">还没有发起过投票</h3>
-          <p className="text-gray-600 mb-6">去发起你的第一个投票吧！</p>
-          <Link
-            href="/votes/create"
-            className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            发起投票
-          </Link>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">
+            {createdSubTab === 'ai' ? '还没有 AI 发起的投票' : '还没有发起过投票'}
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {createdSubTab === 'ai' ? '让 AI 帮你发起投票吧！' : '去发起你的第一个投票吧！'}
+          </p>
+          {createdSubTab !== 'ai' && (
+            <Link
+              href="/votes/create"
+              className="inline-flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              发起投票
+            </Link>
+          )}
         </div>
       );
     }
 
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {createdVotes.map((vote) => (
+        {displayVotes.map((vote) => (
           <VoteCard
             key={vote.id}
             id={vote.id}
@@ -304,7 +326,7 @@ export function ProfileTabs({
       <div className="flex items-center gap-2 mb-6">
         <button
           onClick={() => setActiveTab('created')}
-          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
             activeTab === 'created'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -314,7 +336,7 @@ export function ProfileTabs({
         </button>
         <button
           onClick={() => setActiveTab('participated')}
-          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
             activeTab === 'participated'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -324,7 +346,7 @@ export function ProfileTabs({
         </button>
         <button
           onClick={() => setActiveTab('favorites')}
-          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
             activeTab === 'favorites'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -366,6 +388,42 @@ export function ProfileTabs({
             }`}
           >
             我参与的 ({humanParticipations.length})
+          </button>
+        </div>
+      )}
+
+      {/* Created Sub-tabs */}
+      {activeTab === 'created' && (
+        <div className="flex items-center gap-2 mb-6">
+          <button
+            onClick={() => setCreatedSubTab('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              createdSubTab === 'all'
+                ? 'bg-secondary-500 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            全部 ({createdVotes.length})
+          </button>
+          <button
+            onClick={() => setCreatedSubTab('human')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              createdSubTab === 'human'
+                ? 'bg-secondary-500 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            本人发起 ({createdVotes.filter((v) => v.operatorType === 'human').length})
+          </button>
+          <button
+            onClick={() => setCreatedSubTab('ai')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              createdSubTab === 'ai'
+                ? 'bg-secondary-500 text-white'
+                : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+            }`}
+          >
+            AI发起 ({createdVotes.filter((v) => v.operatorType === 'ai').length})
           </button>
         </div>
       )}
