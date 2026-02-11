@@ -49,7 +49,7 @@ export function Navbar() {
             <Link
               href="/votes"
               className={`font-medium transition-colors duration-200 flex items-center gap-2 ${
-                pathname === '/votes'
+                pathname === '/votes' || pathname === '/'
                   ? 'text-blue-600'
                   : 'text-gray-700 hover:text-blue-600'
               }`}

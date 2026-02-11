@@ -13,10 +13,10 @@ interface Vote {
   options: unknown;
   operatorType: string;
   allowChange: boolean;
-  expiresAt: Date | null;
-  activeAt: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  expiresAt: string | null;
+  activeAt: string;
+  createdAt: string;
+  updatedAt: string;
   participantCount: {
     human: number;
     ai: number;
@@ -40,26 +40,30 @@ interface VotesResponse {
   };
 }
 
-type SortType = 'latest' | 'hot' | 'expiring';
+type SortType = 'newest' | 'hot' | 'active' | 'expiring';
 
 export default function VotesPage() {
   const [votes, setVotes] = useState<Vote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState<SortType>('latest');
+  const [sort, setSort] = useState<SortType>('newest');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
   const fetchVotes = async () => {
     setLoading(true);
     try {
-      const sortParam = sort === 'expiring' ? 'latest' : sort;
+      const sortParam = sort === 'expiring' ? 'newest' : sort;
       const res = await fetch(`/api/votes?sort=${sortParam}`);
       const data: VotesResponse = await res.json();
 
       if (data.code === 0) {
         let sortedVotes = data.data.votes;
 
-        // 如果是按即将截止排序，在前端过滤
-        if (sort === 'expiring') {
+        // 根据不同排序方式在前端处理
+        if (sort === 'hot') {
+          // 最热门：按参与人数降序
+          sortedVotes = sortedVotes.sort((a, b) => b.participantCount.total - a.participantCount.total);
+        } else if (sort === 'expiring') {
+          // 即将截止：过滤并按截止时间升序
           sortedVotes = sortedVotes
             .filter((v) => v.expiresAt && new Date(v.expiresAt) > new Date())
             .sort((a, b) => {
@@ -83,8 +87,9 @@ export default function VotesPage() {
   }, [sort]);
 
   const filterButtons: { key: SortType; label: string }[] = [
-    { key: 'latest', label: '最新活跃' },
+    { key: 'newest', label: '最新' },
     { key: 'hot', label: '最热门' },
+    { key: 'active', label: '最近活跃' },
     { key: 'expiring', label: '即将截止' },
   ];
 
@@ -156,6 +161,7 @@ export default function VotesPage() {
                   }}
                   expiresAt={vote.expiresAt ? new Date(vote.expiresAt) : undefined}
                   activeAt={new Date(vote.activeAt)}
+                  createdAt={new Date(vote.createdAt)}
                   allowChange={vote.allowChange}
                   userVoted={vote.userVoted || false}
                 />

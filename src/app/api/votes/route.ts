@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma';
  * 查询参数：
  * - page?: number (默认 1)
  * - limit?: number (默认 20)
- * - sort?: 'latest' | 'hot' (默认 'latest'，按 createdAt 倒序)
+ * - sort?: 'newest' | 'hot' | 'active' (默认 'newest'，按 createdAt 倒序)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -15,14 +15,27 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
     const limit = Math.min(100, Math.max(1, parseInt(searchParams.get('limit') || '20')));
-    const sort = searchParams.get('sort') || 'latest';
+    const sort = searchParams.get('sort') || 'newest';
 
     const skip = (page - 1) * limit;
 
     // 根据 sort 参数决定排序方式
-    const orderBy = sort === 'hot'
-      ? { responses: { _count: 'desc' } as any } // 热门排序：按响应数量
-      : { createdAt: 'desc' as const }; // 最新排序：按创建时间
+    let orderBy: any;
+    switch (sort) {
+      case 'hot':
+        // 最热门：按响应数量（需要在前端统计后排序）
+        orderBy = { createdAt: 'desc' };
+        break;
+      case 'active':
+        // 最近活跃：按 activeAt 倒序
+        orderBy = { activeAt: 'desc' };
+        break;
+      case 'newest':
+      default:
+        // 最新：按 createdAt 倒序
+        orderBy = { createdAt: 'desc' };
+        break;
+    }
 
     // 查询投票列表
     const votes = await prisma.vote.findMany({
