@@ -263,9 +263,16 @@ export default function VoteDetailPage() {
     );
   }
 
+  // 参与人数 = 不重复的 (userId, operatorType) 组合数
+  const participantSet = new Set<string>();
+  responses.forEach((r) => {
+    participantSet.add(`${r.userId}-${r.operatorType}`);
+  });
   const participantCount = {
-    human: Object.values(stats).reduce((sum, s) => sum + s.human, 0),
-    ai: Object.values(stats).reduce((sum, s) => sum + s.ai, 0),
+    human: responses.filter(r => r.operatorType === 'human')
+      .reduce((set, r) => set.add(r.userId), new Set<string>()).size,
+    ai: responses.filter(r => r.operatorType === 'ai')
+      .reduce((set, r) => set.add(r.userId), new Set<string>()).size,
   };
 
   return (
