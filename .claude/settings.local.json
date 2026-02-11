@@ -61,7 +61,11 @@
       "mcp__chrome-devtool__navigate_page",
       "mcp__chrome-devtool__take_snapshot",
       "mcp__chrome-devtool__take_screenshot",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "mcp__fetch__fetch",
+      "Bash(sqlite3:*)",
+      "mcp__mind-map__update_node_children",
+      "Bash(npx next build:*)"
     ]
   }
 }
