@@ -190,7 +190,11 @@ export default function VoteDetailPage() {
 
       const data = await res.json();
       if (data.code === 0) {
-        setAiReason(data.data.reason || '');
+        const generatedReason = data.data.reason || '';
+        const generatedChoice = data.data.choice;
+        setAiReason(generatedReason);
+        setReason(generatedReason); // 同步到表单
+        setSelectedChoice(generatedChoice); // 同步选项
         toast.success('AI 建议生成成功！');
       } else {
         toast.error(data.error || 'AI 建议失败');
@@ -337,7 +341,7 @@ export default function VoteDetailPage() {
       </header>
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 sm:py-4 sticky top-16 z-20">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sm:py-4">
         <div className="max-w-4xl mx-auto flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4">
           <button
             onClick={() => setActiveTab('participate')}
