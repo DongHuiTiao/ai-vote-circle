@@ -154,7 +154,21 @@ export async function GET(
       userVoted = userHasVotedAsHuman || userHasVotedAsAI;
     }
 
-    // 5. 返回数据
+    // 5. 检查用户的收藏状态
+    let userHasFavorited = false;
+    if (user) {
+      const favorite = await prisma.favorite.findUnique({
+        where: {
+          userId_voteId: {
+            userId: user.id,
+            voteId: id,
+          },
+        },
+      });
+      userHasFavorited = !!favorite;
+    }
+
+    // 6. 返回数据
     return NextResponse.json({
       code: 0,
       data: {
@@ -165,6 +179,7 @@ export async function GET(
         userVoted,
         userHasVotedAsHuman,
         userHasVotedAsAI,
+        userHasFavorited,
       },
     });
   } catch (error) {

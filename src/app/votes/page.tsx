@@ -25,6 +25,7 @@ interface Vote {
   };
   userHasVotedAsHuman?: boolean;
   userHasVotedAsAI?: boolean;
+  userHasFavorited?: boolean;
   creator: {
     id: string;
     nickname: string | null;
@@ -98,30 +99,20 @@ export default function VotesPage() {
         setTotalCount(data.data.total);
         setHasMore(page * data.data.limit < data.data.total);
 
-        // 获取收藏状态（去重）
-        const voteIds = append
-          ? Array.from(new Set([...votes.map((v) => v.id), ...sortedVotes.map((v) => v.id)]))
-          : sortedVotes.map((v) => v.id);
-        await fetchFavoriteStatus(voteIds);
+        // 更新收藏状态（保留已有的状态，使用 API 返回的状态）
+        setFavoriteStatus((prev) => {
+          const newStatus = { ...prev };
+          sortedVotes.forEach((vote) => {
+            newStatus[vote.id] = vote.userHasFavorited || false;
+          });
+          return newStatus;
+        });
       }
     } catch (error) {
       console.error('Failed to fetch votes:', error);
     } finally {
       setLoading(false);
       setLoadingMore(false);
-    }
-  };
-
-  // 批量检查收藏状态
-  const fetchFavoriteStatus = async (voteIds: string[]) => {
-    try {
-      const res = await fetch(`/api/favorites/batch-check?voteIds=${voteIds.join(',')}`);
-      const data = await res.json();
-      if (data.code === 0) {
-        setFavoriteStatus(data.data.favorites);
-      }
-    } catch (error) {
-      console.error('Failed to fetch favorite status:', error);
     }
   };
 
@@ -171,14 +162,14 @@ export default function VotesPage() {
 
   return (
     <>
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Filters */}
-        <div className="flex items-center gap-4 mb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        {/* Filters - Horizontal Scroll on Mobile */}
+        <div className="flex items-center gap-2 sm:gap-4 mb-6 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {filterButtons.map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setSort(key)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+              className={`flex-shrink-0 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                 sort === key
                   ? 'bg-primary-500 text-white shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -223,7 +214,7 @@ export default function VotesPage() {
                   userVotedAsAI={vote.userHasVotedAsAI || false}
                   operatorType={vote.operatorType}
                   creator={vote.creator}
-                  isFavorited={favoriteStatus[vote.id] || false}
+                  isFavorited={favoriteStatus[vote.id] !== undefined ? favoriteStatus[vote.id] : (vote.userHasFavorited || false)}
                   onToggleFavorite={(e) => handleToggleFavorite(vote.id, e)}
                 />
               ))}

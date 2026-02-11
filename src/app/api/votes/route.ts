@@ -74,6 +74,18 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    // 获取用户的收藏记录（用于检查是否已收藏）
+    let userFavoriteRecords: Array<{ voteId: string }> = [];
+    if (user) {
+      userFavoriteRecords = await prisma.favorite.findMany({
+        where: { userId: user.id },
+        select: { voteId: true },
+      });
+    }
+
+    // 构建收藏 ID 集合
+    const favoritedVoteIds = new Set(userFavoriteRecords.map((r) => r.voteId));
+
     // 统计每个投票的人类和 AI 参与数，并检查用户是否已投票
     const votesWithStats = votes.map((vote) => {
       // 按 operatorType 统计，每个用户每种类型取最新的一条
@@ -114,6 +126,7 @@ export async function GET(request: NextRequest) {
         userVoted,
         userHasVotedAsHuman,
         userHasVotedAsAI,
+        userHasFavorited: favoritedVoteIds.has(vote.id),
       };
     });
 

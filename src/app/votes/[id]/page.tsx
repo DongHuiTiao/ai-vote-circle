@@ -58,6 +58,7 @@ interface VoteDetailResponse {
     userVoted?: boolean;
     userHasVotedAsHuman?: boolean;
     userHasVotedAsAI?: boolean;
+    userHasFavorited?: boolean;
   };
 }
 
@@ -74,6 +75,7 @@ export default function VoteDetailPage() {
   const [userVoted, setUserVoted] = useState(false);
   const [userHasVotedAsHuman, setUserHasVotedAsHuman] = useState(false);
   const [userHasVotedAsAI, setUserHasVotedAsAI] = useState(false);
+  const [userHasFavorited, setUserHasFavorited] = useState(false);
 
   // Form state
   const [selectedChoice, setSelectedChoice] = useState<number | number[] | null>(null);
@@ -83,10 +85,6 @@ export default function VoteDetailPage() {
   // AI voting state
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiReason, setAiReason] = useState('');
-
-  // Favorite state
-  const [isFavorited, setIsFavorited] = useState(false);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'results' | 'participate' | 'comments'>('participate');
@@ -105,6 +103,7 @@ export default function VoteDetailPage() {
         setUserVoted(data.data.userVoted || false);
         setUserHasVotedAsHuman(data.data.userHasVotedAsHuman || false);
         setUserHasVotedAsAI(data.data.userHasVotedAsAI || false);
+        setUserHasFavorited(data.data.userHasFavorited || false);
       }
     } catch (err) {
       console.error('Failed to refresh data:', err);
@@ -127,6 +126,7 @@ export default function VoteDetailPage() {
           setUserVoted(data.data.userVoted || false);
           setUserHasVotedAsHuman(data.data.userHasVotedAsHuman || false);
           setUserHasVotedAsAI(data.data.userHasVotedAsAI || false);
+          setUserHasFavorited(data.data.userHasFavorited || false);
         } else {
           setError(data.data?.vote ? '未知错误' : '投票不存在');
         }
@@ -139,20 +139,6 @@ export default function VoteDetailPage() {
     }
     fetchVoteDetail();
   }, [voteId]);
-
-  // 获取收藏状态
-  async function fetchFavoriteStatus() {
-    try {
-      const res = await fetch(`/api/favorites/check?voteId=${voteId}`);
-      const data = await res.json();
-      if (data.code === 0) {
-        setIsFavorited(data.data.isFavorited);
-      }
-    } catch (err) {
-      console.error('Failed to fetch favorite status:', err);
-    }
-  }
-  fetchFavoriteStatus();
 
   async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -218,24 +204,29 @@ export default function VoteDetailPage() {
   }
 
   async function handleToggleFavorite() {
-    setFavoriteLoading(true);
+    // 乐观更新 UI
+    const newStatus = !userHasFavorited;
+    setUserHasFavorited(newStatus);
+
     try {
+      const method = newStatus ? 'POST' : 'DELETE';
       const res = await fetch(`/api/votes/${voteId}/favorite`, {
-        method: 'POST',
+        method,
       });
 
       const data = await res.json();
       if (data.code === 0) {
-        setIsFavorited(!isFavorited);
-        toast.success(isFavorited ? '已取消收藏' : '已收藏');
+        toast.success(newStatus ? '已收藏' : '已取消收藏');
       } else {
-        toast.error(data.error || '操作失败');
+        // 失败时回滚
+        setUserHasFavorited(!newStatus);
+        toast.error(data.message || data.error || '操作失败');
       }
     } catch (err) {
+      // 出错时回滚
+      setUserHasFavorited(!newStatus);
       console.error('Toggle favorite error:', err);
       toast.error('操作失败，请重试');
-    } finally {
-      setFavoriteLoading(false);
     }
   }
 
@@ -279,60 +270,78 @@ export default function VoteDetailPage() {
     <>
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-wrap items-center gap-2 text-sm mb-4">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+          {/* Status Tags Row */}
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-3 sm:mb-4">
+            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
               {vote.type === 'single' ? '单选' : '多选'}
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg font-medium">
+            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-green-50 text-green-700 rounded-lg font-medium">
               ✓
             </span>
             {vote.allowChange ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg font-medium">
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-green-50 text-green-700 rounded-lg font-medium">
                 允许改票
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
-                ✗ 不可改票
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
+                不可改
               </span>
             )}
-            <span>·</span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg font-medium">
-              👤 {participantCount.human} 人类
+            <span className="text-gray-300 hidden sm:inline">·</span>
+            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-blue-50 text-blue-700 rounded-lg font-medium">
+              👤 {participantCount.human}
             </span>
-            <span>·</span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg font-medium">
-              🤖 {participantCount.ai} AI
+            <span className="text-gray-300 hidden sm:inline">·</span>
+            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-purple-50 text-purple-700 rounded-lg font-medium">
+              🤖 {participantCount.ai}
             </span>
-            <span>·</span>
-            <span className="font-medium text-gray-900">总计 {totalVotes} 票</span>
+            <span className="text-gray-300 hidden sm:inline">·</span>
+            <span className="font-medium text-gray-900">{totalVotes} 票</span>
             {userHasVotedAsHuman && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                 <CheckCircle2 className="w-3 h-3" />
-                本人已投票
+                本人已投
               </span>
             )}
             {userHasVotedAsAI && (
               <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
                 <CheckCircle2 className="w-3 h-3" />
-                SecondMe 已投票
+                AI已投
               </span>
             )}
           </div>
 
-          <h1 className="text-3xl font-bold text-gray-900 mb-3">{vote.title}</h1>
-          {vote.description && (
-            <p className="text-gray-700 text-lg leading-relaxed">{vote.description}</p>
-          )}
+          {/* Title + Favorite Button */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">{vote.title}</h1>
+              {vote.description && (
+                <p className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">{vote.description}</p>
+              )}
+            </div>
+            <button
+              onClick={handleToggleFavorite}
+              className={`flex-shrink-0 px-3 py-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 ${
+                userHasFavorited
+                  ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
+                  : 'text-gray-500 hover:bg-gray-100'
+              }`}
+              title={userHasFavorited ? '取消收藏' : '收藏'}
+            >
+              <Star className={`w-4 h-4 flex-shrink-0 ${userHasFavorited ? 'fill-current' : ''}`} />
+              <span className="hidden sm:inline">{userHasFavorited ? '已收藏' : '收藏'}</span>
+            </button>
+          </div>
         </div>
       </header>
 
       {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-16 z-20">
-        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sm:py-4 sticky top-16 z-20">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide -mx-4 px-4">
           <button
             onClick={() => setActiveTab('participate')}
-            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
               activeTab === 'participate'
                 ? 'bg-primary-500 text-white shadow-md'
                 : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -342,7 +351,7 @@ export default function VoteDetailPage() {
           </button>
           <button
             onClick={() => setActiveTab('results')}
-            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
               activeTab === 'results'
                 ? 'bg-primary-500 text-white shadow-md'
                 : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -352,7 +361,7 @@ export default function VoteDetailPage() {
           </button>
           <button
             onClick={() => setActiveTab('comments')}
-            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
               activeTab === 'comments'
                 ? 'bg-primary-500 text-white shadow-md'
                 : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
@@ -363,31 +372,31 @@ export default function VoteDetailPage() {
         </div>
       </div>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Main Content Area */}
-        <section className="min-h-[500px]">
+        <section className="min-h-[400px] sm:min-h-[500px]">
             {/* Tab Content */}
             {activeTab === 'participate' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                 {(!vote.allowChange && userHasVotedAsHuman) ? (
                   // 不可改票且已投票
-                  <div className="text-center py-12">
-                    <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">已投票，不可改票</h2>
-                    <p className="text-gray-600">此投票不允许修改，您已经完成投票。</p>
+                  <div className="text-center py-8 sm:py-12">
+                    <CheckCircle2 className="w-12 h-12 sm:w-16 sm:h-16 text-green-500 mx-auto mb-4" />
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">已投票，不可改票</h2>
+                    <p className="text-gray-600 text-sm sm:text-base">此投票不允许修改，您已经完成投票。</p>
                   </div>
                 ) : (
                   // 可投票或允许改票
                   <>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-5">🗳️ 参与投票</h2>
-                    <form onSubmit={handleSubmit} className="space-y-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-5">🗳️ 参与投票</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                       {/* Options */}
-                      <div className="space-y-3">
+                      <div className="space-y-2 sm:space-y-3">
                         <label className="text-sm font-medium text-gray-700">选择你的答案</label>
                         {vote.options.map((option, index) => (
                           <label
                             key={index}
-                            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                            className={`flex items-center p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
                               (vote.type === 'single'
                                 ? selectedChoice === index
                                 : Array.isArray(selectedChoice) && selectedChoice.includes(index))
@@ -418,7 +427,7 @@ export default function VoteDetailPage() {
                               }}
                               className="w-5 h-5 text-primary-600 border-gray-300 focus:ring-primary-500"
                             />
-                            <span className="ml-3 font-medium text-gray-900">{option}</span>
+                            <span className="ml-3 text-sm sm:text-base font-medium text-gray-900">{option}</span>
                           </label>
                         ))}
                       </div>
@@ -433,7 +442,7 @@ export default function VoteDetailPage() {
                             type="button"
                             onClick={handleAISuggest}
                             disabled={aiSuggesting}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                           >
                             {aiSuggesting ? (
                               <>
@@ -442,7 +451,7 @@ export default function VoteDetailPage() {
                               </>
                             ) : (
                               <>
-                                <Bot className="w-3 h-3" />
+                                <Bot className="w-3.5 h-3.5" />
                                 AI 生成理由
                               </>
                             )}
@@ -453,7 +462,7 @@ export default function VoteDetailPage() {
                           onChange={(e) => setReason(e.target.value)}
                           placeholder="分享一下你的选择理由..."
                           rows={4}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
                         />
                       </div>
 
@@ -479,40 +488,40 @@ export default function VoteDetailPage() {
             )}
 
             {activeTab === 'results' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
                 {!userHasVotedAsHuman ? (
                   // 未投票时显示提示
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <CheckCircle2 className="w-8 h-8 text-gray-400" />
+                  <div className="text-center py-8 sm:py-12">
+                    <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="w-7 h-7 sm:w-8 sm:h-8 text-gray-400" />
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">完成投票后可查看</h2>
-                    <p className="text-gray-600">请先在【参与投票】标签完成投票，然后即可查看投票结果。</p>
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">完成投票后可查看</h2>
+                    <p className="text-gray-600 text-sm sm:text-base">请先在【参与投票】标签完成投票，然后即可查看投票结果。</p>
                   </div>
                 ) : (
                   // 已投票显示结果
                   <>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-5">📊 投票结果</h2>
-                    <div className="space-y-5 mb-8">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-5">📊 投票结果</h2>
+                    <div className="space-y-4 sm:space-y-5 mb-6 sm:mb-8">
                       {vote.options.map((option, index) => {
                         const stat = stats[index.toString()] || { total: 0, percentage: 0, human: 0, ai: 0 };
                         return (
                           <div key={index} className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="font-semibold text-gray-900">{option}</span>
-                              <span className="text-sm font-medium text-gray-600 tabular-nums">
+                            <div className="flex items-center justify-between text-sm sm:text-base">
+                              <span className="font-semibold text-gray-900 text-sm sm:text-base">{option}</span>
+                              <span className="text-xs sm:text-sm font-medium text-gray-600 tabular-nums">
                                 {stat.total} 票 ({stat.percentage.toFixed(1)}%)
                               </span>
                             </div>
                             {/* Progress Bar with gradient and animation */}
-                            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden" role="progressbar" aria-valuenow={stat.percentage} aria-valuemin={0} aria-valuemax={100}>
+                            <div className="w-full bg-gray-100 rounded-full h-2.5 sm:h-3 overflow-hidden" role="progressbar" aria-valuenow={stat.percentage} aria-valuemin={0} aria-valuemax={100}>
                               <div
                                 className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500 ease-out"
                                 style={{ width: `${stat.percentage}%` }}
                               />
                             </div>
                             {/* Detail */}
-                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                            <div className="flex items-center gap-3 sm:gap-4 text-xs text-gray-600">
                               <span className="inline-flex items-center gap-1">
                                 <span className="w-2 h-2 rounded-full bg-blue-500"></span>
                                 {stat.human} 人类
@@ -589,38 +598,40 @@ export default function VoteDetailPage() {
             )}
 
             {activeTab === 'comments' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-5">💬 评论列表 ({responses.length})</h2>
-                <div className="space-y-4" role="list">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-5">💬 评论列表 ({responses.length})</h2>
+                <div className="space-y-3 sm:space-y-4" role="list">
                   {responses.map((response) => (
                     <div
                       key={response.id}
                       role="listitem"
-                      className={`p-4 rounded-lg border transition-all duration-200 ${
+                      className={`p-3 sm:p-4 rounded-lg border transition-all duration-200 ${
                         response.operatorType === 'ai'
                           ? 'bg-purple-50 border-purple-200'
                           : 'bg-gray-50 border-gray-200'
                       }`}
                     >
                       {/* User Info */}
-                      <div className="flex items-center gap-2 mb-3">
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-2 sm:mb-3">
                         {response.operatorType === 'ai' ? (
                           <>
-                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2.5 sm:py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">
                               <Bot className="w-3 h-3" aria-hidden="true" />
-                              AI 投票
+                              <span className="hidden sm:inline">AI 投票</span>
+                              <span className="sm:hidden">AI</span>
                             </span>
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-xs sm:text-sm font-medium text-gray-900">
                               {response.user.nickname || '用户'}
                             </span>
                           </>
                         ) : (
                           <>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-100 text-primary-700 text-xs font-bold rounded-full">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-2 sm:py-0.5 bg-primary-100 text-primary-700 text-xs font-bold rounded-full">
                               <User className="w-3 h-3" aria-hidden="true" />
-                              人类投票
+                              <span className="hidden sm:inline">人类投票</span>
+                              <span className="sm:hidden">人类</span>
                             </span>
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-xs sm:text-sm font-medium text-gray-900">
                               {response.user.nickname || '用户'}
                             </span>
                           </>
@@ -634,12 +645,12 @@ export default function VoteDetailPage() {
                       </div>
 
                       {/* Choice */}
-                      <div className="flex items-center gap-2 mb-2">
-                        <CheckCircle2 className="w-4 h-4 text-primary-500" />
-                        <span className={`font-medium ${
+                      <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                        <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-500 flex-shrink-0" />
+                        <span className={`text-sm sm:text-base font-medium ${
                           response.operatorType === 'ai' ? 'text-purple-900' : 'text-gray-900'
                         }`}>
-                          投了：{
+                          {
                             Array.isArray(response.choice)
                               ? response.choice.map((i: number) => vote.options[i]).join(', ')
                               : vote.options[response.choice as number]
@@ -649,7 +660,7 @@ export default function VoteDetailPage() {
 
                       {/* Reason */}
                       {response.reason && (
-                        <p className={`text-sm ${
+                        <p className={`text-xs sm:text-sm ${
                           response.operatorType === 'ai' ? 'text-purple-800' : 'text-gray-700'
                         }`}>{response.reason}</p>
                       )}

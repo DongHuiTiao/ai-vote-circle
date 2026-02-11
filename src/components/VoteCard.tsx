@@ -103,51 +103,53 @@ export function VoteCard({
     <Link href={`/votes/${id}`} className="block">
       <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 overflow-hidden cursor-pointer hover:border-primary-200">
         {/* Status Bar - Top */}
-        <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 sm:px-5 py-3 bg-gray-50 border-b border-gray-100">
           {/* Left: Status Tags */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             {/* Human Voted Status */}
             {userVotedAsHuman && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                本人已投票
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">本人已投票</span>
+                <span className="sm:hidden">本人已投</span>
               </span>
             )}
 
             {/* AI Voted Status */}
             {userVotedAsAI && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-md">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                SecondMe 已投票
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-md">
+                <CheckCircle2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span className="hidden sm:inline">SecondMe 已投票</span>
+                <span className="sm:hidden">AI已投票</span>
               </span>
             )}
 
             {/* Vote Type */}
-            <span className="inline-flex items-center px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md">
+            <span className="inline-flex items-center px-2 py-1 sm:px-2.5 sm:py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md">
               {type === 'single' ? '单选' : '多选'}
             </span>
 
             {/* Change Vote Status */}
             {allowChange && (
-              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md" title="允许修改投票">
-                <RefreshCw className="w-3 h-3" />
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md" title="允许修改投票">
+                <RefreshCw className="w-3 h-3 sm:w-3 sm:h-3" />
                 可改
               </span>
             )}
           </div>
 
           {/* Right: Deadline Status */}
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${timeStatus.bg} ${timeStatus.color} text-xs font-medium rounded-md`}>
-            <TimeIcon className="w-3.5 h-3.5" />
+          <span className={`inline-flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 ${timeStatus.bg} ${timeStatus.color} text-xs font-medium rounded-md`}>
+            <TimeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             {timeStatus.text}
           </span>
         </div>
 
         {/* Main Content */}
-        <div className="p-5">
+        <div className="p-3 sm:p-5">
           {/* Title & Description */}
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-snug group-hover:text-primary-600 transition-colors">
+          <div className="mb-3 sm:mb-4">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2 leading-snug group-hover:text-primary-600 transition-colors">
               {title}
             </h3>
             {description && (
@@ -156,23 +158,23 @@ export function VoteCard({
           </div>
 
           {/* Bottom: Participant Count */}
-          <div className="flex items-center gap-2 pt-4 border-t border-gray-100 text-sm">
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 text-gray-700 font-medium rounded-md">
-              <UsersIcon className="w-4 h-4 text-gray-400" />
+          <div className="flex items-center gap-1.5 sm:gap-2 pt-3 sm:pt-4 border-t border-gray-100 text-xs sm:text-sm">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-gray-50 text-gray-700 font-medium rounded-md">
+              <UsersIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
               <span>{totalParticipants} 票</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 text-blue-700 font-medium rounded-md">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-blue-50 text-blue-700 font-medium rounded-md">
               <span>人类 {participantCount.human}</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 text-purple-700 font-medium rounded-md">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-purple-50 text-purple-700 font-medium rounded-md">
               <span>AI {participantCount.ai}</span>
             </div>
           </div>
 
           {/* Time Information Bar */}
-          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-gray-50 text-xs">
             {/* Left: Creator + Operator Type + Published Time */}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {creator.avatar ? (
                 <img
                   src={creator.avatar}
@@ -187,28 +189,29 @@ export function VoteCard({
 
               {/* Operator Type Badge */}
               {operatorType && (
-                <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ${
+                <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 text-xs font-medium rounded-md ${
                   operatorType === 'ai'
                     ? 'bg-purple-100 text-purple-700 border border-purple-200'
                     : 'bg-blue-100 text-blue-700 border border-blue-200'
                 }`}>
-                  {operatorType === 'ai' ? 'AI 发布' : '本人发布'}
+                  {operatorType === 'ai' ? 'AI' : '本人'}
                 </span>
               )}
 
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Calendar className="w-3.5 h-3.5" />
-                <span>发布 {formatTimeAgo(createdAt)}</span>
+              <div className="flex items-center gap-1 text-gray-500">
+                <Calendar className="w-3 h-3.5" />
+                <span className="hidden sm:inline">发布 </span>
+                <span>{formatTimeAgo(createdAt)}</span>
               </div>
             </div>
 
             {/* Right: Favorite + Active Time */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {/* Favorite Button */}
               {onToggleFavorite && (
                 <button
                   onClick={handleFavoriteClick}
-                  className={`px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1.5 ${
+                  className={`px-2 sm:px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 ${
                     isFavorited
                       ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
                       : 'text-gray-500 hover:bg-gray-100'
@@ -216,14 +219,15 @@ export function VoteCard({
                   title={isFavorited ? '取消收藏' : '收藏'}
                 >
                   <Star className={`w-3.5 h-3.5 flex-shrink-0 ${isFavorited ? 'fill-current' : ''}`} />
-                  <span className="text-sm font-medium">
+                  <span className="hidden sm:inline text-sm font-medium">
                     {isFavorited ? '已收藏' : '收藏'}
                   </span>
                 </button>
               )}
-              <div className="flex items-center gap-1.5 text-gray-500">
-                <Activity className="w-3.5 h-3.5" />
-                <span>活跃 {formatTimeAgo(activeAt)}</span>
+              <div className="flex items-center gap-1 text-gray-500">
+                <Activity className="w-3 h-3.5" />
+                <span className="hidden sm:inline">活跃 </span>
+                <span>{formatTimeAgo(activeAt)}</span>
               </div>
             </div>
           </div>
