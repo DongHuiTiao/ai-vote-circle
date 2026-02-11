@@ -18,9 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
-      <body className="antialiased">
+      <body className="antialiased h-screen flex flex-col">
         <Navbar />
-        {children}
+        <div className="flex-1 overflow-y-auto">
+          {children}
+        </div>
         <Toaster position="top-center" richColors />
       </body>
     </html>
