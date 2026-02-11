@@ -4,6 +4,7 @@ import { VoteCard } from '@/components/VoteCard';
 import { CreateVoteDialog } from '@/components/CreateVoteDialog';
 import { PlusIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 interface Vote {
   id: string;
@@ -48,6 +49,7 @@ export default function VotesPage() {
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState<SortType>('newest');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [favoriteStatus, setFavoriteStatus] = useState<Record<string, boolean>>({});
 
   const fetchVotes = async () => {
     setLoading(true);
@@ -75,11 +77,54 @@ export default function VotesPage() {
         }
 
         setVotes(sortedVotes);
+
+        // 获取收藏状态
+        await fetchFavoriteStatus(sortedVotes.map((v) => v.id));
       }
     } catch (error) {
       console.error('Failed to fetch votes:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 批量检查收藏状态
+  const fetchFavoriteStatus = async (voteIds: string[]) => {
+    try {
+      const res = await fetch(`/api/favorites/batch-check?voteIds=${voteIds.join(',')}`);
+      const data = await res.json();
+      if (data.code === 0) {
+        setFavoriteStatus(data.data.favorites);
+      }
+    } catch (error) {
+      console.error('Failed to fetch favorite status:', error);
+    }
+  };
+
+  const handleToggleFavorite = async (voteId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 乐观更新 UI
+    const newStatus = !favoriteStatus[voteId];
+    setFavoriteStatus((prev) => ({ ...prev, [voteId]: newStatus }));
+
+    try {
+      const method = newStatus ? 'POST' : 'DELETE';
+      const res = await fetch(`/api/votes/${voteId}/favorite`, { method });
+
+      const data = await res.json();
+      if (data.code === 0) {
+        toast.success(newStatus ? '收藏成功' : '已取消收藏');
+      } else {
+        // 失败时回滚
+        setFavoriteStatus((prev) => ({ ...prev, [voteId]: !newStatus }));
+        toast.error(data.message || '操作失败');
+      }
+    } catch (error) {
+      // 出错时回滚
+      setFavoriteStatus((prev) => ({ ...prev, [voteId]: !newStatus }));
+      toast.error('操作失败，请重试');
     }
   };
 
@@ -167,6 +212,8 @@ export default function VotesPage() {
                   userVotedAsHuman={vote.userHasVotedAsHuman || false}
                   userVotedAsAI={vote.userHasVotedAsAI || false}
                   creator={vote.creator}
+                  isFavorited={favoriteStatus[vote.id] || false}
+                  onToggleFavorite={(e) => handleToggleFavorite(vote.id, e)}
                 />
               ))}
             </div>

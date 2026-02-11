@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, User, Bot, Loader2 } from 'lucide-react';
+import { CheckCircle2, User, Bot, Star, RefreshCw, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
@@ -55,6 +55,9 @@ interface VoteDetailResponse {
     stats: Record<string, VoteStats>;
     responses: VoteResponse[];
     totalVotes: number;
+    userVoted?: boolean;
+    userHasVotedAsHuman?: boolean;
+    userHasVotedAsAI?: boolean;
   };
 }
 
@@ -80,6 +83,33 @@ export default function VoteDetailPage() {
   // AI voting state
   const [aiSuggesting, setAiSuggesting] = useState(false);
   const [aiReason, setAiReason] = useState('');
+
+  // Favorite state
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'vote' | 'comments'>('vote');
+
+  // Refresh data function
+  const refreshData = async () => {
+    try {
+      const res = await fetch(`/api/votes/${voteId}`);
+      const data: VoteDetailResponse = await res.json();
+
+      if (data.code === 0 && data.data) {
+        setVote(data.data.vote);
+        setStats(data.data.stats);
+        setResponses(data.data.responses);
+        setTotalVotes(data.data.totalVotes);
+        setUserVoted(data.data.userVoted || false);
+        setUserHasVotedAsHuman(data.data.userHasVotedAsHuman || false);
+        setUserHasVotedAsAI(data.data.userHasVotedAsAI || false);
+      }
+    } catch (err) {
+      console.error('Failed to refresh data:', err);
+    }
+  };
 
   useEffect(() => {
     async function fetchVoteDetail() {
@@ -110,7 +140,21 @@ export default function VoteDetailPage() {
     fetchVoteDetail();
   }, [voteId]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  // 获取收藏状态
+  async function fetchFavoriteStatus() {
+    try {
+      const res = await fetch(`/api/favorites/check?voteId=${voteId}`);
+      const data = await res.json();
+      if (data.code === 0) {
+        setIsFavorited(data.data.isFavorited);
+      }
+    } catch (err) {
+      console.error('Failed to fetch favorite status:', err);
+    }
+  }
+  fetchFavoriteStatus();
+
+  async function handleSubmit(e: React.SyntheticEvent) {
     e.preventDefault();
     if (selectedChoice === null) {
       toast.error('请选择一个选项');
@@ -133,7 +177,11 @@ export default function VoteDetailPage() {
       if (data.code === 0) {
         toast.success('投票成功！');
         // 重新获取数据
-        setTimeout(() => window.location.reload(), 1000);
+        await refreshData();
+        // 重置表单
+        setSelectedChoice(null);
+        setReason('');
+        setAiReason('');
       } else {
         toast.error(data.error || '提交失败');
       }
@@ -155,20 +203,39 @@ export default function VoteDetailPage() {
       });
 
       const data = await res.json();
-
       if (data.code === 0) {
-        const { choice, reason } = data.data;
-        setSelectedChoice(choice);
-        setAiReason(reason);
-        setReason(reason);
+        setAiReason(data.data.reason || '');
+        toast.success('AI 建议生成成功！');
       } else {
-        toast.error(data.message || 'AI 建议生成失败');
+        toast.error(data.error || 'AI 建议失败');
       }
-    } catch (error) {
-      console.error('AI suggest error:', error);
-      toast.error('AI 建议生成失败，请重试');
+    } catch (err) {
+      console.error('Failed to AI suggest:', err);
+      toast.error('AI 建议失败');
     } finally {
       setAiSuggesting(false);
+    }
+  }
+
+  async function handleToggleFavorite() {
+    setFavoriteLoading(true);
+    try {
+      const res = await fetch(`/api/votes/${voteId}/favorite`, {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+      if (data.code === 0) {
+        setIsFavorited(!isFavorited);
+        toast.success(isFavorited ? '已取消收藏' : '已收藏');
+      } else {
+        toast.error(data.error || '操作失败');
+      }
+    } catch (err) {
+      console.error('Toggle favorite error:', err);
+      toast.error('操作失败，请重试');
+    } finally {
+      setFavoriteLoading(false);
     }
   }
 
@@ -204,318 +271,293 @@ export default function VoteDetailPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200">
+      <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-2 text-sm text-gray-500 mb-3">
-            <span className="inline-flex items-center gap-1 px-2 py-1 bg-primary-100 text-primary-700 rounded-md font-medium">
+          <div className="flex flex-wrap items-center gap-2 text-sm mb-4">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
               {vote.type === 'single' ? '单选' : '多选'}
             </span>
-            <span>·</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg font-medium">
+              ✓
+            </span>
             {vote.allowChange ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md font-medium">
-                ✓ 允许改票
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-lg font-medium">
+                允许改票
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-600 rounded-md font-medium">
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
                 ✗ 不可改票
               </span>
             )}
             <span>·</span>
-            <span>{participantCount.human} 人类</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-lg font-medium">
+              👤 {participantCount.human} 人类
+            </span>
             <span>·</span>
-            <span>{participantCount.ai} AI</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-lg font-medium">
+              🤖 {participantCount.ai} AI
+            </span>
             <span>·</span>
-            <span>参与</span>
+            <span className="font-medium text-gray-900">总计 {totalVotes} 票</span>
+            {userVoted && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">
+                <CheckCircle2 className="w-3 h-3" />
+                已投票
+              </span>
+            )}
           </div>
 
           <h1 className="text-3xl font-bold text-gray-900 mb-3">{vote.title}</h1>
           {vote.description && (
-            <p className="text-gray-600 text-lg">{vote.description}</p>
+            <p className="text-gray-700 text-lg leading-relaxed">{vote.description}</p>
           )}
         </div>
-      </div>
+      </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Vote & Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Voting Results */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">投票结果</h2>
-              <div className="space-y-4">
-                {vote.options.map((option, index) => {
-                  const stat = stats[index.toString()] || { total: 0, percentage: 0, human: 0, ai: 0 };
-                  return (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{option}</span>
-                        <span className="text-sm text-gray-600">
-                          {stat.total} 票 ({stat.percentage.toFixed(1)}%)
-                        </span>
-                      </div>
-                      {/* Progress Bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div
-                          className="h-full bg-primary-500 transition-all duration-300"
-                          style={{ width: `${stat.percentage}%` }}
-                        />
-                      </div>
-                      {/* Detail */}
-                      <div className="flex items-center gap-4 text-xs text-gray-500">
-                        <span>👤 {stat.human} 人类</span>
-                        <span>🤖 {stat.ai} AI</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Voting Form */}
-            {(!userVoted || vote.allowChange) && (
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">参与投票</h2>
-                  {vote.allowChange && (
-                    <span className="text-sm text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                      可随时修改
-                    </span>
-                  )}
-                </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Options */}
-                <div className="space-y-3">
-                  {vote.options.map((option, index) => (
-                    <label
-                      key={index}
-                      className="flex items-center gap-3 p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      <input
-                        type={vote.type === 'single' ? 'radio' : 'checkbox'}
-                        name="vote"
-                        value={index}
-                        checked={
-                          vote.type === 'single'
-                            ? selectedChoice === index
-                            : Array.isArray(selectedChoice) && selectedChoice.includes(index)
-                        }
-                        onChange={(e) => {
-                          if (vote.type === 'single') {
-                            setSelectedChoice(index);
-                          } else {
-                            const checked = e.target.checked;
-                            setSelectedChoice((prev) => {
-                              const arr = Array.isArray(prev) ? prev : [];
-                              return checked
-                                ? [...arr, index]
-                                : arr.filter((i) => i !== index);
-                            });
-                          }
-                        }}
-                        className="w-5 h-5 text-primary-500 focus:ring-primary-500 focus:ring-offset-0"
-                      />
-                      <span className="font-medium text-gray-900">{option}</span>
-                    </label>
-                  ))}
-                </div>
-
-                {/* Reason */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    理由（可选）
-                  </label>
-                  <textarea
-                    rows={4}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all duration-200 placeholder:text-gray-400"
-                    placeholder="说说你的想法..."
-                  />
-                </div>
-
-                {/* Submit Button */}
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
-                  >
-                    {submitting ? '提交中...' : '提交投票'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleAISuggest}
-                    disabled={aiSuggesting || submitting}
-                    className="flex-1 bg-secondary-500 hover:bg-secondary-600 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-secondary-500 focus:ring-offset-2 flex items-center justify-center gap-2"
-                  >
-                    {aiSuggesting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        AI 思考中...
-                      </>
-                    ) : aiReason ? (
-                      '✓ AI 已建议'
-                    ) : (
-                      '让 AI 帮我投票'
-                    )}
-                  </button>
-                </div>
-
-                {/* AI Reason Display */}
-                {aiReason && (
-                  <div className="mt-4 p-4 bg-secondary-50 border border-secondary-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Bot className="w-5 h-5 text-secondary-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="font-medium text-secondary-900 mb-1">AI 建议</p>
-                        <p className="text-sm text-secondary-700">{aiReason}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </form>
-            </div>
-            )}
-
-            {/* Voted Message (shown when user has voted and cannot change) */}
-            {userVoted && !vote.allowChange && (
-              <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-                <div className="text-center py-8">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-                    <CheckCircle2 className="w-8 h-8 text-green-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">你已投过票</h3>
-                  <p className="text-gray-600 mb-4">
-                    {userHasVotedAsHuman && userHasVotedAsAI
-                      ? '你已经用人类身份和 AI 身份投过票了'
-                      : userHasVotedAsHuman
-                      ? '你已经投过票了'
-                      : '你的 AI 已经帮你投过票了'}
-                  </p>
-                  <p className="text-sm text-gray-500">此投票不允许修改</p>
-                </div>
-              </div>
-            )}
-
-            {/* Responses List */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                理由列表 ({responses.length})
-              </h2>
-              <div className="space-y-4">
-                {responses.map((response) => (
-                  <div
-                    key={response.id}
-                    className={`p-4 rounded-lg border ${
-                      response.operatorType === 'ai'
-                        ? 'bg-secondary-50 border-secondary-200'
-                        : 'bg-gray-50 border-gray-200'
-                    }`}
-                  >
-                    {/* User Info */}
-                    <div className="flex items-center gap-2 mb-2">
-                      {response.operatorType === 'ai' ? (
-                        <>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-secondary-100 text-secondary-700 text-xs font-bold rounded-full">
-                            <Bot className="w-3 h-3" />
-                            AI 投票
-                          </span>
-                          <span className="text-sm font-medium text-secondary-900">
-                            {response.user.nickname || '用户'}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-100 text-primary-700 text-xs font-bold rounded-full">
-                            <User className="w-3 h-3" />
-                            人类投票
-                          </span>
-                          <span className="text-sm font-medium text-gray-900">
-                            {response.user.nickname || '用户'}
-                          </span>
-                        </>
-                      )}
-                      <span className="text-xs text-gray-400 ml-auto">
-                        {new Date(response.createdAt).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
-                    </div>
-
-                    {/* Choice */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="w-4 h-4 text-primary-500" />
-                      <span className={`font-medium ${
-                        response.operatorType === 'ai' ? 'text-secondary-900' : 'text-gray-900'
-                      }`}>
-                        投了：{
-                          Array.isArray(response.choice)
-                            ? response.choice.map(i => vote.options[i]).join(', ')
-                            : vote.options[response.choice]
-                        }
-                      </span>
-                    </div>
-
-                    {/* Reason */}
-                    {response.reason && (
-                      <p className={`text-sm ${
-                        response.operatorType === 'ai' ? 'text-secondary-800' : 'text-gray-700'
-                      }`}>{response.reason}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Stats */}
-          <div className="space-y-6">
-            {/* Summary Card */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">参与统计</h3>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">人类参与</span>
-                  <span className="font-semibold text-gray-900">
-                    {participantCount.human} 人
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">AI 参与</span>
-                  <span className="font-semibold text-gray-900">
-                    {participantCount.ai} 个
-                  </span>
-                </div>
-                <div className="border-t border-gray-200 pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600 font-medium">总计</span>
-                    <span className="font-bold text-gray-900 text-lg">
-                      {totalVotes}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-white rounded-xl shadow-md border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">快捷操作</h3>
-              <div className="space-y-2">
-                <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-gray-700">
-                  分享投票
-                </button>
-                <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-gray-700">
-                  收藏投票
-                </button>
-                <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-gray-700">
-                  举报
-                </button>
-              </div>
-            </div>
-          </div>
+      {/* Fixed Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 px-4 sticky top-16 z-20">
+        <div className="max-w-4xl mx-auto flex gap-1">
+          <button
+            onClick={() => setActiveTab('vote')}
+            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+              activeTab === 'vote'
+                ? 'bg-primary-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            🗳️ 投票
+          </button>
+          <button
+            onClick={() => setActiveTab('comments')}
+            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+              activeTab === 'comments'
+                ? 'bg-primary-500 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            💬 评论列表 ({responses.length})
+          </button>
         </div>
       </div>
+
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Main Content Area */}
+        <section className="min-h-[500px]">
+            {/* Tab Content */}
+            {activeTab === 'vote' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                {!userVoted ? (
+                  // 未投票时显示投票表单
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-5">🗳️ 参与投票</h2>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      {/* Options */}
+                      <div className="space-y-3">
+                        <label className="text-sm font-medium text-gray-700">选择你的答案</label>
+                        {vote.options.map((option, index) => (
+                          <label
+                            key={index}
+                            className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                              (vote.type === 'single'
+                                ? selectedChoice === index
+                                : Array.isArray(selectedChoice) && selectedChoice.includes(index))
+                                ? 'border-primary-500 bg-primary-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                            }`}
+                          >
+                            <input
+                              type={vote.type === 'single' ? 'radio' : 'checkbox'}
+                              name="choice"
+                              value={index}
+                              checked={
+                                vote.type === 'single'
+                                  ? selectedChoice === index
+                                  : Array.isArray(selectedChoice) && selectedChoice.includes(index)
+                              }
+                              onChange={(e) => {
+                                if (vote.type === 'single') {
+                                  setSelectedChoice(index);
+                                } else {
+                                  const current = Array.isArray(selectedChoice) ? selectedChoice : [];
+                                  if (e.target.checked) {
+                                    setSelectedChoice([...current, index]);
+                                  } else {
+                                    setSelectedChoice(current.filter((i) => i !== index));
+                                  }
+                                }
+                              }}
+                              className="w-5 h-5 text-primary-600 border-gray-300 focus:ring-primary-500"
+                            />
+                            <span className="ml-3 font-medium text-gray-900">{option}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {/* Reason Input */}
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-gray-700">
+                          投票理由（选填）
+                        </label>
+                        <div className="flex gap-2 mb-2">
+                          <button
+                            type="button"
+                            onClick={handleAISuggest}
+                            disabled={aiSuggesting}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {aiSuggesting ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                                生成中...
+                              </>
+                            ) : (
+                              <>
+                                <Bot className="w-3 h-3" />
+                                AI 生成理由
+                              </>
+                            )}
+                          </button>
+                        </div>
+                        <textarea
+                          value={reason}
+                          onChange={(e) => setReason(e.target.value)}
+                          placeholder="分享一下你的选择理由..."
+                          rows={4}
+                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                        />
+                      </div>
+
+                      {/* Submit Button */}
+                      <button
+                        type="submit"
+                        disabled={submitting || selectedChoice === null}
+                        className="w-full py-3 px-6 bg-primary-500 text-white font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      >
+                        {submitting ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            提交中...
+                          </span>
+                        ) : (
+                          '提交投票'
+                        )}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  // 已投票显示结果
+                  <>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-5">📊 投票结果</h2>
+                    <div className="space-y-5">
+                      {vote.options.map((option, index) => {
+                        const stat = stats[index.toString()] || { total: 0, percentage: 0, human: 0, ai: 0 };
+                        return (
+                          <div key={index} className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-900">{option}</span>
+                              <span className="text-sm font-medium text-gray-600 tabular-nums">
+                                {stat.total} 票 ({stat.percentage.toFixed(1)}%)
+                              </span>
+                            </div>
+                            {/* Progress Bar with gradient and animation */}
+                            <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden" role="progressbar" aria-valuenow={stat.percentage} aria-valuemin={0} aria-valuemax={100}>
+                              <div
+                                className="h-full bg-gradient-to-r from-primary-500 to-primary-600 rounded-full transition-all duration-500 ease-out"
+                                style={{ width: `${stat.percentage}%` }}
+                              />
+                            </div>
+                            {/* Detail */}
+                            <div className="flex items-center gap-4 text-xs text-gray-600">
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                                {stat.human} 人类
+                              </span>
+                              <span className="inline-flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                                {stat.ai} AI
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'comments' && (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                <h2 className="text-2xl font-bold text-gray-900 mb-5">💬 评论列表 ({responses.length})</h2>
+                <div className="space-y-4" role="list">
+                  {responses.map((response) => (
+                    <div
+                      key={response.id}
+                      role="listitem"
+                      className={`p-4 rounded-lg border transition-all duration-200 ${
+                        response.operatorType === 'ai'
+                          ? 'bg-purple-50 border-purple-200'
+                          : 'bg-gray-50 border-gray-200'
+                      }`}
+                    >
+                      {/* User Info */}
+                      <div className="flex items-center gap-2 mb-3">
+                        {response.operatorType === 'ai' ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-bold rounded-full">
+                              <Bot className="w-3 h-3" aria-hidden="true" />
+                              AI 投票
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {response.user.nickname || '用户'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-100 text-primary-700 text-xs font-bold rounded-full">
+                              <User className="w-3 h-3" aria-hidden="true" />
+                              人类投票
+                            </span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {response.user.nickname || '用户'}
+                            </span>
+                          </>
+                        )}
+                        <span className="text-xs text-gray-400 ml-auto">
+                          {new Date(response.createdAt).toLocaleTimeString('zh-CN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+
+                      {/* Choice */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-primary-500" />
+                        <span className={`font-medium ${
+                          response.operatorType === 'ai' ? 'text-purple-900' : 'text-gray-900'
+                        }`}>
+                          投了：{
+                            Array.isArray(response.choice)
+                              ? response.choice.map((i: number) => vote.options[i]).join(', ')
+                              : vote.options[response.choice as number]
+                          }
+                        </span>
+                      </div>
+
+                      {/* Reason */}
+                      {response.reason && (
+                        <p className={`text-sm ${
+                          response.operatorType === 'ai' ? 'text-purple-800' : 'text-gray-700'
+                        }`}>{response.reason}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+      </main>
     </div>
   );
 }

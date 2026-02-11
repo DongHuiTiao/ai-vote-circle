@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { UserIcon, Bot, Clock, FileText, TrendingUp } from 'lucide-react';
+import { FileText, Star, TrendingUp, Clock } from 'lucide-react';
+import { toast } from 'sonner';
+import { VoteCard } from '@/components/VoteCard';
 
 interface VoteResponse {
   id: string;
@@ -10,6 +12,7 @@ interface VoteResponse {
   userId: string;
   choice: any;
   reason: string | null;
+  operatorType: 'human' | 'ai';
   createdAt: Date;
   vote: {
     id: string;
@@ -23,13 +26,26 @@ interface Vote {
   id: string;
   title: string;
   description: string | null;
-  type: string;
-  options: any;
+  type: 'single' | 'multiple';
+  allowChange?: boolean;
+  expiresAt: Date | null;
+  activeAt: Date;
   createdAt: Date;
   participantCount: {
     human: number;
     ai: number;
   };
+  creator?: {
+    id: string;
+    nickname: string | null;
+    avatar: string | null;
+  };
+}
+
+interface Favorite {
+  id: string;
+  createdAt: Date;
+  vote: Vote;
 }
 
 interface ProfileTabsProps {
@@ -37,6 +53,7 @@ interface ProfileTabsProps {
   participatedVotes: VoteResponse[];
   humanParticipations: VoteResponse[];
   aiParticipations: VoteResponse[];
+  favorites: Favorite[];
 }
 
 export function ProfileTabs({
@@ -44,33 +61,46 @@ export function ProfileTabs({
   participatedVotes,
   humanParticipations,
   aiParticipations,
+  favorites,
 }: ProfileTabsProps) {
-  const [activeTab, setActiveTab] = useState<'created' | 'participated'>('created');
+  const [activeTab, setActiveTab] = useState<'created' | 'participated' | 'favorites'>('created');
   const [participatedSubTab, setParticipatedSubTab] = useState<'all' | 'ai' | 'human'>('all');
+  const [favoriteStatus, setFavoriteStatus] = useState<Record<string, boolean>>({});
 
-  const getVoteTypeLabel = (type: string) => {
-    const typeMap: Record<string, string> = {
-      single: '单选',
-      multiple: '多选',
-      rating: '评分',
-      ranking: '排序',
-      ab_test: 'A/B测试',
-    };
-    return typeMap[type] || type;
-  };
+  // 初始化收藏状态
+  useEffect(() => {
+    const statusMap: Record<string, boolean> = {};
+    favorites.forEach((fav) => {
+      statusMap[fav.vote.id] = true;
+    });
+    setFavoriteStatus(statusMap);
+  }, [favorites]);
 
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diff = now.getTime() - new Date(date).getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(minutes / 60);
-    const days = Math.floor(hours / 24);
+  const handleToggleFavorite = async (voteId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
 
-    if (minutes < 1) return '刚刚';
-    if (minutes < 60) return `${minutes}分钟前`;
-    if (hours < 24) return `${hours}小时前`;
-    if (days < 7) return `${days}天前`;
-    return new Date(date).toLocaleDateString('zh-CN');
+    // 乐观更新 UI
+    const newStatus = !favoriteStatus[voteId];
+    setFavoriteStatus((prev) => ({ ...prev, [voteId]: newStatus }));
+
+    try {
+      const method = newStatus ? 'POST' : 'DELETE';
+      const res = await fetch(`/api/votes/${voteId}/favorite`, { method });
+      const data = await res.json();
+
+      if (data.code === 0) {
+        toast.success(newStatus ? '收藏成功' : '已取消收藏');
+        // 触发页面刷新以更新列表
+        window.location.reload();
+      } else {
+        setFavoriteStatus((prev) => ({ ...prev, [voteId]: !newStatus }));
+        toast.error(data.message || '操作失败');
+      }
+    } catch (error) {
+      setFavoriteStatus((prev) => ({ ...prev, [voteId]: !newStatus }));
+      toast.error('操作失败，请重试');
+    }
   };
 
   const renderCreatedVotes = () => {
@@ -96,50 +126,50 @@ export function ProfileTabs({
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {createdVotes.map((vote) => (
-          <Link
+          <VoteCard
             key={vote.id}
-            href={`/votes/${vote.id}`}
-            className="bg-white rounded-xl shadow-md border border-gray-200 p-6 hover:shadow-lg transition-shadow duration-200"
-          >
-            {/* Type Badge */}
-            <div className="flex items-center gap-2 mb-3">
-              <span className="inline-flex items-center px-3 py-1 bg-primary-100 text-primary-700 rounded-full text-sm font-medium">
-                {getVoteTypeLabel(vote.type)}
-              </span>
-            </div>
-
-            {/* Title */}
-            <h3 className="text-xl font-bold text-gray-900 mb-2 line-clamp-2">
-              {vote.title}
-            </h3>
-
-            {/* Description */}
-            {vote.description && (
-              <p className="text-gray-600 mb-4 line-clamp-2">{vote.description}</p>
-            )}
-
-            {/* Stats */}
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-1">
-                <UserIcon className="w-4 h-4" />
-                <span>{vote.participantCount.human} 人类</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Bot className="w-4 h-4" />
-                <span>{vote.participantCount.ai} AI</span>
-              </div>
-              <div className="flex items-center gap-1 ml-auto">
-                <Clock className="w-4 h-4" />
-                <span>{formatDate(vote.createdAt)}</span>
-              </div>
-            </div>
-          </Link>
+            id={vote.id}
+            title={vote.title}
+            description={vote.description || undefined}
+            type={vote.type}
+            participantCount={vote.participantCount}
+            expiresAt={vote.expiresAt}
+            activeAt={vote.activeAt}
+            createdAt={vote.createdAt}
+            allowChange={vote.allowChange}
+            creator={vote.creator!}
+          />
         ))}
       </div>
     );
   };
 
   const renderParticipatedVotes = () => {
+    const getVoteTypeLabel = (type: string) => {
+      const typeMap: Record<string, string> = {
+        single: '单选',
+        multiple: '多选',
+        rating: '评分',
+        ranking: '排序',
+        ab_test: 'A/B测试',
+      };
+      return typeMap[type] || type;
+    };
+
+    const formatDate = (date: Date) => {
+      const now = new Date();
+      const diff = now.getTime() - new Date(date).getTime();
+      const minutes = Math.floor(diff / 60000);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (minutes < 1) return '刚刚';
+      if (minutes < 60) return `${minutes}分钟前`;
+      if (hours < 24) return `${hours}小时前`;
+      if (days < 7) return `${days}天前`;
+      return new Date(date).toLocaleDateString('zh-CN');
+    };
+
     const getDisplayVotes = () => {
       switch (participatedSubTab) {
         case 'ai':
@@ -209,6 +239,15 @@ export function ProfileTabs({
                     <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded text-xs font-medium">
                       {getVoteTypeLabel(response.vote.type)}
                     </span>
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${
+                        response.operatorType === 'human'
+                          ? 'bg-green-50 text-green-700'
+                          : 'bg-purple-50 text-purple-700'
+                      }`}
+                    >
+                      {response.operatorType === 'human' ? '👤 我投的' : '🤖 AI投的'}
+                    </span>
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {formatDate(response.createdAt)}
@@ -219,6 +258,40 @@ export function ProfileTabs({
             </Link>
           );
         })}
+      </div>
+    );
+  };
+
+  const renderFavorites = () => {
+    if (favorites.length === 0) {
+      return (
+        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
+          <Star className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">暂无收藏</h3>
+          <p className="text-gray-600">去投票大厅收藏感兴趣的投票吧！</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {favorites.map((item) => (
+          <VoteCard
+            key={item.id}
+            id={item.vote.id}
+            title={item.vote.title}
+            description={item.vote.description || undefined}
+            type={item.vote.type}
+            participantCount={item.vote.participantCount}
+            expiresAt={item.vote.expiresAt}
+            activeAt={item.vote.activeAt}
+            createdAt={item.vote.createdAt}
+            allowChange={item.vote.allowChange}
+            creator={item.vote.creator!}
+            isFavorited={favoriteStatus[item.vote.id] || false}
+            onToggleFavorite={(e) => handleToggleFavorite(item.vote.id, e)}
+          />
+        ))}
       </div>
     );
   };
@@ -246,6 +319,16 @@ export function ProfileTabs({
           }`}
         >
           我参与的 ({participatedVotes.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('favorites')}
+          className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
+            activeTab === 'favorites'
+              ? 'bg-primary-500 text-white shadow-md'
+              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+          }`}
+        >
+          我的收藏 ({favorites.length})
         </button>
       </div>
 
@@ -286,7 +369,11 @@ export function ProfileTabs({
       )}
 
       {/* Content */}
-      {activeTab === 'created' ? renderCreatedVotes() : renderParticipatedVotes()}
+      {activeTab === 'created'
+        ? renderCreatedVotes()
+        : activeTab === 'favorites'
+        ? renderFavorites()
+        : renderParticipatedVotes()}
     </div>
   );
 }

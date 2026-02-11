@@ -14,6 +14,18 @@ export default async function ProfilePage() {
   const createdVotes = await prisma.vote.findMany({
     where: { createdBy: user.id },
     orderBy: { createdAt: 'desc' },
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      type: true,
+      options: true,
+      allowChange: true,
+      expiresAt: true,
+      activeAt: true,
+      createdAt: true,
+      updatedAt: true,
+    },
   });
 
   // 获取每个投票的参与统计
@@ -43,6 +55,11 @@ export default async function ProfilePage() {
           human: humanCount,
           ai: aiCount,
         },
+        creator: {
+          id: user.id,
+          nickname: user.nickname,
+          avatar: user.avatar,
+        },
       };
     })
   );
@@ -57,6 +74,67 @@ export default async function ProfilePage() {
   // 区分人类和 AI 的投票
   const humanParticipations = participatedVotes.filter((r) => r.operatorType === 'human');
   const aiParticipations = participatedVotes.filter((r) => r.operatorType === 'ai');
+
+  // 获取用户收藏的投票
+  const favorites = await prisma.favorite.findMany({
+    where: { userId: user.id },
+    include: {
+      vote: {
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          type: true,
+          allowChange: true,
+          expiresAt: true,
+          activeAt: true,
+          createdAt: true,
+          creator: {
+            select: {
+              id: true,
+              nickname: true,
+              avatar: true,
+            },
+          },
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  // 为收藏的投票添加参与统计
+  const favoritesWithStats = await Promise.all(
+    favorites.map(async (fav) => {
+      const responses = await prisma.voteResponse.findMany({
+        where: { voteId: fav.vote.id },
+      });
+
+      // 按 operatorType 统计，每个用户每种类型取最新的一条
+      const latestByUser = new Map<string, { createdAt: Date; operatorType: string }>();
+      responses.forEach((r) => {
+        const key = `${r.userId}-${r.operatorType}`;
+        const existing = latestByUser.get(key);
+        if (!existing || r.createdAt > existing.createdAt) {
+          latestByUser.set(key, { createdAt: r.createdAt, operatorType: r.operatorType });
+        }
+      });
+
+      const uniqueResponses = Array.from(latestByUser.values());
+      const humanCount = uniqueResponses.filter((r) => r.operatorType === 'human').length;
+      const aiCount = uniqueResponses.filter((r) => r.operatorType === 'ai').length;
+
+      return {
+        ...fav,
+        vote: {
+          ...fav.vote,
+          participantCount: {
+            human: humanCount,
+            ai: aiCount,
+          },
+        },
+      };
+    })
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -84,7 +162,7 @@ export default async function ProfilePage() {
                 {user.nickname || '用户'}
               </h1>
               <p className="text-gray-600 mt-1">
-                {createdVotesWithStats.length} 个发起的投票 · {participatedVotes.length} 次参与
+                {createdVotesWithStats.length} 个发起的投票 · {participatedVotes.length} 次参与 · {favorites.length} 个收藏
               </p>
             </div>
           </div>
@@ -98,6 +176,7 @@ export default async function ProfilePage() {
           participatedVotes={participatedVotes}
           humanParticipations={humanParticipations}
           aiParticipations={aiParticipations}
+          favorites={favoritesWithStats}
         />
       </div>
     </div>

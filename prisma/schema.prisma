@@ -10,8 +10,8 @@ datasource db {
 model User {
   id             String          @id @default(cuid())
   secondmeUserId String          @unique @map("secondme_user_id")
-  accessToken    String          @map("access_token")
-  refreshToken   String          @map("refresh_token")
+  accessToken    String?         @map("access_token")
+  refreshToken   String?         @map("refresh_token")
   tokenExpiresAt DateTime        @map("token_expires_at")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
@@ -20,26 +20,30 @@ model User {
   voteResponses  VoteResponse[]
   votes          Vote[]
   autoVoteJobs   AutoVoteJob[]
+  dailyAIVoteJobs DailyAIVoteJob[]
+  favorites      Favorite[]
 
   @@map("users")
 }
 
 model Vote {
-  id           String   @id @default(cuid())
-  title        String
-  description  String?
-  type         String              // single, multiple
-  options      Json                // 投票选项数组
-  operatorType String              // human, ai（发起者类型）
-  allowChange  Boolean  @default(false)  // 是否允许改票
-  expiresAt    DateTime?           // 截止时间（可选）
-  activeAt     DateTime @default(now()) @map("active_at")  // 最新活跃时间
-  createdBy    String   @map("created_by")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id             String   @id @default(cuid())
+  title          String
+  description    String?
+  type           String              // single, multiple
+  options        Json                // 投票选项数组
+  operatorType   String              // human, ai（发起者类型）
+  allowChange    Boolean  @default(false)  // 是否允许改票
+  expiresAt      DateTime?           // 截止时间（可选）
+  activeAt       DateTime @default(now()) @map("active_at")  // 最新活跃时间
+  createdBy      String   @map("created_by")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
-  creator      User     @relation(fields: [createdBy], references: [id])
-  responses    VoteResponse[]
+  creator        User              @relation(fields: [createdBy], references: [id])
+  responses      VoteResponse[]
+  dailyAIVoteJobs DailyAIVoteJob[]
+  favorites      Favorite[]
 
   @@map("votes")
 }
@@ -78,4 +82,57 @@ model AutoVoteJob {
 
   @@index([status, priority, createdAt])
   @@map("auto_vote_jobs")
+}
+
+// AI 每日发帖任务队列
+model DailyAIVoteJob {
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  status      String   @default("pending") // pending, processing, completed, failed
+  voteId      String?  @map("vote_id")     // 创建的投票 ID
+  error       String?  // 错误信息
+  retryCount  Int      @default(0) @map("retry_count") // 重试次数
+  scheduledFor DateTime @default(now()) @map("scheduled_for") // 计划执行日期
+  createdAt   DateTime @default(now()) @map("created_at")
+  startedAt   DateTime? @map("started_at")
+  completedAt DateTime? @map("completed_at")
+
+  user User @relation(fields: [userId], references: [id])
+  vote Vote? @relation(fields: [voteId], references: [id])
+
+  @@index([status, scheduledFor])
+  @@map("daily_ai_vote_jobs")
+}
+
+// Worker 心跳状态表
+model WorkerHeartbeat {
+  id                String   @id @default(cuid())
+  instanceId        String   @unique @map("instance_id") // PM2 进程 ID
+  status            String   @default("stopped") // running, stopped, error
+  pid               Int?     // 进程 ID
+  uptime            Int      @default(0) // 运行时长（秒）
+  totalProcessed    Int      @default(0) // 已处理任务总数
+  lastActivityAt    DateTime @map("last_activity_at") // 最后活跃时间
+  startedAt         DateTime? @map("started_at") // 启动时间
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([status, instanceId])
+  @@map("worker_heartbeats")
+}
+
+// 收藏表
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  voteId    String   @map("vote_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vote Vote @relation(fields: [voteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, voteId])  // 防止重复收藏
+  @@index([userId])
+  @@index([voteId])
+  @@map("favorites")
 }
