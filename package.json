@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "worker": "tsx src/lib/auto-vote-worker.ts"
+    "worker": "tsx src/lib/auto-vote-worker.ts",
+    "clean-test-votes": "tsx scripts/clean-test-votes.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",
@@ -26,6 +27,7 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.24",
     "postcss": "^8.5.6",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   }
 }
