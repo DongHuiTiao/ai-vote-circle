@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { MessageSquareIcon, UsersIcon, ClockIcon } from 'lucide-react';
+import { UsersIcon, ClockIcon, CheckCircle2, RefreshCw, Calendar, Activity } from 'lucide-react';
 
 interface VoteCardProps {
   id: string;
@@ -16,7 +16,13 @@ interface VoteCardProps {
   activeAt: Date;
   createdAt: Date;
   allowChange?: boolean;
-  userVoted?: boolean;
+  userVotedAsHuman?: boolean;
+  userVotedAsAI?: boolean;
+  creator: {
+    id: string;
+    nickname: string | null;
+    avatar: string | null;
+  };
 }
 
 export function VoteCard({
@@ -29,9 +35,12 @@ export function VoteCard({
   activeAt,
   createdAt,
   allowChange = false,
-  userVoted = false,
+  userVotedAsHuman = false,
+  userVotedAsAI = false,
+  creator,
 }: VoteCardProps) {
   const isExpired = expiresAt && new Date(expiresAt) < new Date();
+  const totalParticipants = participantCount.human + participantCount.ai;
 
   const formatTimeAgo = (date: Date) => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
@@ -44,85 +53,121 @@ export function VoteCard({
     return `${days}天前`;
   };
 
-  return (
-    <Link href={`/votes/${id}`}>
-      <div className="relative bg-white rounded-xl shadow-md hover:shadow-lg transition-all duration-200 border border-gray-200 p-6 cursor-pointer hover:translate-y-[-2px]">
-        {/* Voted Badge - Top Right */}
-        {userVoted && (
-          <div className="absolute top-4 right-4">
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white text-sm font-bold rounded-full shadow-md">
-              ✓ 已投票
-            </span>
-          </div>
-        )}
+  const getTimeStatus = () => {
+    if (isExpired) {
+      return { text: '已截止', color: 'text-red-600', bg: 'bg-red-50', icon: ClockIcon };
+    }
+    if (expiresAt) {
+      const timeLeft = new Date(expiresAt).getTime() - new Date().getTime();
+      const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+      if (hoursLeft < 24) {
+        return { text: `${hoursLeft}小时后截止`, color: 'text-orange-600', bg: 'bg-orange-50', icon: ClockIcon };
+      }
+      return { text: formatTimeAgo(expiresAt), color: 'text-gray-600', bg: 'bg-gray-50', icon: ClockIcon };
+    }
+    return { text: '长期收集', color: 'text-green-600', bg: 'bg-green-50', icon: RefreshCw };
+  };
 
-        {/* Header */}
-        <div className="flex items-start justify-between mb-4 pr-16">
-          <div className="flex-1">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-2">
+  const timeStatus = getTimeStatus();
+  const TimeIcon = timeStatus.icon;
+
+  return (
+    <Link href={`/votes/${id}`} className="block">
+      <div className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 overflow-hidden cursor-pointer hover:border-primary-200">
+        {/* Status Bar - Top */}
+        <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-100">
+          {/* Left: Status Tags */}
+          <div className="flex items-center gap-2">
+            {/* Human Voted Status */}
+            {userVotedAsHuman && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-md">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                本人已投票
+              </span>
+            )}
+
+            {/* AI Voted Status */}
+            {userVotedAsAI && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-md">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                SecondMe 已投票
+              </span>
+            )}
+
+            {/* Vote Type */}
+            <span className="inline-flex items-center px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-medium rounded-md">
+              {type === 'single' ? '单选' : '多选'}
+            </span>
+
+            {/* Change Vote Status */}
+            {allowChange && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md" title="允许修改投票">
+                <RefreshCw className="w-3 h-3" />
+                可改
+              </span>
+            )}
+          </div>
+
+          {/* Right: Deadline Status */}
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${timeStatus.bg} ${timeStatus.color} text-xs font-medium rounded-md`}>
+            <TimeIcon className="w-3.5 h-3.5" />
+            {timeStatus.text}
+          </span>
+        </div>
+
+        {/* Main Content */}
+        <div className="p-5">
+          {/* Title & Description */}
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2 leading-snug group-hover:text-primary-600 transition-colors">
               {title}
             </h3>
             {description && (
-              <p className="text-gray-600 text-sm line-clamp-2 mb-3">{description}</p>
+              <p className="text-gray-600 text-sm line-clamp-2 leading-relaxed">{description}</p>
             )}
           </div>
-        </div>
 
-        {/* Meta Info */}
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-4">
-          <span className="inline-flex items-center gap-1.5">
-            {type === 'single' ? (
-              <span className="font-medium">单选</span>
-            ) : (
-              <span className="font-medium">多选</span>
-            )}
-          </span>
+          {/* Bottom: Participant Count */}
+          <div className="flex items-center gap-2 pt-4 border-t border-gray-100 text-sm">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 text-gray-700 font-medium rounded-md">
+              <UsersIcon className="w-4 h-4 text-gray-400" />
+              <span>{totalParticipants} 票</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 text-blue-700 font-medium rounded-md">
+              <span>人类 {participantCount.human}</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-purple-50 text-purple-700 font-medium rounded-md">
+              <span>AI {participantCount.ai}</span>
+            </div>
+          </div>
 
-          {allowChange ? (
-            <span className="inline-flex items-center gap-1 text-green-600 font-medium">
-              ✓ 允许改票
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-gray-500 font-medium">
-              ✗ 不可改票
-            </span>
-          )}
+          {/* Time Information Bar */}
+          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 text-xs">
+            {/* Left: Creator + Published Time */}
+            <div className="flex items-center gap-2">
+              {creator.avatar ? (
+                <img
+                  src={creator.avatar}
+                  alt={creator.nickname || '发布者'}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                  <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
+                </div>
+              )}
+              <div className="flex items-center gap-1.5 text-gray-500">
+                <Calendar className="w-3.5 h-3.5" />
+                <span>发布 {formatTimeAgo(createdAt)}</span>
+              </div>
+            </div>
 
-          <span className="inline-flex items-center gap-1.5">
-            <UsersIcon className="w-4 h-4" />
-            <span>
-              {participantCount.human}人类 · {participantCount.ai}AI
-            </span>
-          </span>
-
-          {expiresAt ? (
-            <span className={`inline-flex items-center gap-1.5 ${isExpired ? 'text-red-500' : ''}`}>
-              <ClockIcon className="w-4 h-4" />
-              <span>过期时间：{isExpired ? '已截止' : formatTimeAgo(expiresAt)}</span>
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 text-green-600">
-              <ClockIcon className="w-4 h-4" />
-              <span>长期收集</span>
-            </span>
-          )}
-
-          <span className="inline-flex items-center gap-1.5 ml-auto text-gray-400">
-            <MessageSquareIcon className="w-4 h-4" />
-            <span>最近活跃：{formatTimeAgo(activeAt)}</span>
-          </span>
-
-          <span className="inline-flex items-center gap-1.5 text-gray-400">
-            <ClockIcon className="w-4 h-4" />
-            <span>发布时间：{formatTimeAgo(createdAt)}</span>
-          </span>
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button className="bg-primary-500 hover:bg-primary-600 text-white font-medium py-2 px-6 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2">
-            查看详情
-          </button>
+            {/* Right: Active Time */}
+            <div className="flex items-center gap-1.5 text-gray-500">
+              <Activity className="w-3.5 h-3.5" />
+              <span>活跃 {formatTimeAgo(activeAt)}</span>
+            </div>
+          </div>
         </div>
       </div>
     </Link>

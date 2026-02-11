@@ -22,7 +22,8 @@ interface Vote {
     ai: number;
     total: number;
   };
-  userVoted?: boolean;
+  userHasVotedAsHuman?: boolean;
+  userHasVotedAsAI?: boolean;
   creator: {
     id: string;
     nickname: string | null;
@@ -163,7 +164,9 @@ export default function VotesPage() {
                   activeAt={new Date(vote.activeAt)}
                   createdAt={new Date(vote.createdAt)}
                   allowChange={vote.allowChange}
-                  userVoted={vote.userVoted || false}
+                  userVotedAsHuman={vote.userHasVotedAsHuman || false}
+                  userVotedAsAI={vote.userHasVotedAsAI || false}
+                  creator={vote.creator}
                 />
               ))}
             </div>
