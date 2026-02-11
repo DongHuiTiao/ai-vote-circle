@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className="antialiased h-screen flex flex-col">
         <Navbar />
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
           {children}
         </div>
         <Toaster position="top-center" richColors />
