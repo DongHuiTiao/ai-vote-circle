@@ -222,7 +222,7 @@ export function ProfileTabs({
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {displayVotes.map((response) => {
           const choice = response.choice;
           const choiceText = Array.isArray(choice)
@@ -233,14 +233,14 @@ export function ProfileTabs({
             <Link
               key={response.id}
               href={`/votes/${response.voteId}`}
-              className="block bg-white rounded-xl border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200"
+              className="block bg-white rounded-xl border border-gray-200 p-4 sm:p-6 hover:shadow-md transition-shadow duration-200"
             >
-              <div className="flex items-start gap-4">
+              <div className="flex items-start gap-3 sm:gap-4">
                 {/* Vote Info */}
                 <div className="flex-1 min-w-0">
                   {/* Operator Type Badge - 放在标题前面 */}
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium mb-2 ${
+                    className={`inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 rounded text-xs font-medium mb-1.5 sm:mb-2 ${
                       response.operatorType === 'human'
                         ? 'bg-green-50 text-green-700'
                         : 'bg-purple-50 text-purple-700'
@@ -250,26 +250,26 @@ export function ProfileTabs({
                   </span>
 
                   {/* Vote Title */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">
+                  <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-1.5 sm:mb-2 line-clamp-1">
                     {response.vote.title}
                   </h3>
 
                   {/* Choice */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="w-4 h-4 text-primary-500 flex-shrink-0" />
-                    <span className="text-gray-700 font-medium">
+                  <div className="flex items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                    <TrendingUp className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary-500 flex-shrink-0" />
+                    <span className="text-sm sm:text-base text-gray-700 font-medium">
                       投了：{choiceText}
                     </span>
                   </div>
 
                   {/* Reason */}
                   {response.reason && (
-                    <p className="text-gray-600 line-clamp-2 mb-2">{response.reason}</p>
+                    <p className="text-sm sm:text-base text-gray-600 line-clamp-2 mb-1.5 sm:mb-2">{response.reason}</p>
                   )}
 
                   {/* Meta */}
-                  <div className="flex items-center gap-3 text-sm text-gray-500">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded text-xs font-medium">
+                  <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm text-gray-500">
+                    <span className="inline-flex items-center gap-1 px-1.5 sm:px-2 py-0.5 bg-primary-50 text-primary-700 rounded text-xs font-medium">
                       {getVoteTypeLabel(response.vote.type)}
                     </span>
                     <span className="flex items-center gap-1">
@@ -323,45 +323,45 @@ export function ProfileTabs({
   return (
     <div>
       {/* Main Tabs */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex items-center gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 scrollbar-hide">
         <button
           onClick={() => setActiveTab('created')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+          className={`flex-shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
             activeTab === 'created'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
           }`}
         >
-          我发起的 ({createdVotes.length})
+          发起的 ({createdVotes.length})
         </button>
         <button
           onClick={() => setActiveTab('participated')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+          className={`flex-shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
             activeTab === 'participated'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
           }`}
         >
-          我参与的 ({participatedVotes.length})
+          参与的 ({participatedVotes.length})
         </button>
         <button
           onClick={() => setActiveTab('favorites')}
-          className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+          className={`flex-shrink-0 px-3 sm:px-4 py-2 sm:py-2.5 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
             activeTab === 'favorites'
               ? 'bg-primary-500 text-white shadow-md'
               : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
           }`}
         >
-          我的收藏 ({favorites.length})
+          收藏 ({favorites.length})
         </button>
       </div>
 
       {/* Participated Sub-tabs */}
       {activeTab === 'participated' && (
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 scrollbar-hide">
           <button
             onClick={() => setParticipatedSubTab('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               participatedSubTab === 'all'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -371,33 +371,33 @@ export function ProfileTabs({
           </button>
           <button
             onClick={() => setParticipatedSubTab('ai')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               participatedSubTab === 'ai'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
             }`}
           >
-            AI参与的 ({aiParticipations.length})
+            AI参与 ({aiParticipations.length})
           </button>
           <button
             onClick={() => setParticipatedSubTab('human')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               participatedSubTab === 'human'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
             }`}
           >
-            我参与的 ({humanParticipations.length})
+            我参与 ({humanParticipations.length})
           </button>
         </div>
       )}
 
       {/* Created Sub-tabs */}
       {activeTab === 'created' && (
-        <div className="flex items-center gap-2 mb-6">
+        <div className="flex items-center gap-1.5 sm:gap-2 mb-4 sm:mb-6 overflow-x-auto pb-2 scrollbar-hide">
           <button
             onClick={() => setCreatedSubTab('all')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               createdSubTab === 'all'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -407,7 +407,7 @@ export function ProfileTabs({
           </button>
           <button
             onClick={() => setCreatedSubTab('human')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               createdSubTab === 'human'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
@@ -417,7 +417,7 @@ export function ProfileTabs({
           </button>
           <button
             onClick={() => setCreatedSubTab('ai')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+            className={`flex-shrink-0 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 ${
               createdSubTab === 'ai'
                 ? 'bg-secondary-500 text-white'
                 : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
