@@ -178,9 +178,9 @@ export default function VotesPage() {
             <button
               key={key}
               onClick={() => setSort(key)}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+              className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                 sort === key
-                  ? 'bg-primary-500 text-white'
+                  ? 'bg-primary-500 text-white shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
               }`}
             >
@@ -221,6 +221,7 @@ export default function VotesPage() {
                   allowChange={vote.allowChange}
                   userVotedAsHuman={vote.userHasVotedAsHuman || false}
                   userVotedAsAI={vote.userHasVotedAsAI || false}
+                  operatorType={vote.operatorType}
                   creator={vote.creator}
                   isFavorited={favoriteStatus[vote.id] || false}
                   onToggleFavorite={(e) => handleToggleFavorite(vote.id, e)}

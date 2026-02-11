@@ -306,10 +306,16 @@ export default function VoteDetailPage() {
             </span>
             <span>·</span>
             <span className="font-medium text-gray-900">总计 {totalVotes} 票</span>
-            {userVoted && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">
+            {userHasVotedAsHuman && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
                 <CheckCircle2 className="w-3 h-3" />
-                已投票
+                本人已投票
+              </span>
+            )}
+            {userHasVotedAsAI && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                <CheckCircle2 className="w-3 h-3" />
+                SecondMe 已投票
               </span>
             )}
           </div>
@@ -321,35 +327,35 @@ export default function VoteDetailPage() {
         </div>
       </header>
 
-      {/* Fixed Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 px-4 sticky top-16 z-20">
-        <div className="max-w-4xl mx-auto flex justify-center gap-1">
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 px-4 py-4 sticky top-16 z-20">
+        <div className="max-w-4xl mx-auto flex items-center justify-center gap-2">
           <button
             onClick={() => setActiveTab('participate')}
-            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
               activeTab === 'participate'
                 ? 'bg-primary-500 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
             }`}
           >
             🗳️ 参与投票
           </button>
           <button
             onClick={() => setActiveTab('results')}
-            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
               activeTab === 'results'
                 ? 'bg-primary-500 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
             }`}
           >
             📊 投票结果
           </button>
           <button
             onClick={() => setActiveTab('comments')}
-            className={`px-4 py-2.5 font-medium text-sm transition-all duration-200 ${
+            className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
               activeTab === 'comments'
                 ? 'bg-primary-500 text-white shadow-md'
-                : 'text-gray-600 hover:bg-gray-100'
+                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
             }`}
           >
             💬 评论列表 ({responses.length})

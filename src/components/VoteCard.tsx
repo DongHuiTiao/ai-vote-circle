@@ -18,6 +18,7 @@ interface VoteCardProps {
   allowChange?: boolean;
   userVotedAsHuman?: boolean;
   userVotedAsAI?: boolean;
+  operatorType?: string;
   creator: {
     id: string;
     nickname: string | null;
@@ -39,6 +40,7 @@ export function VoteCard({
   allowChange = false,
   userVotedAsHuman = false,
   userVotedAsAI = false,
+  operatorType,
   creator,
   isFavorited = false,
   onToggleFavorite,
@@ -169,7 +171,7 @@ export function VoteCard({
 
           {/* Time Information Bar */}
           <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50 text-xs">
-            {/* Left: Creator + Published Time */}
+            {/* Left: Creator + Operator Type + Published Time */}
             <div className="flex items-center gap-2">
               {creator.avatar ? (
                 <img
@@ -182,6 +184,18 @@ export function VoteCard({
                   <UsersIcon className="w-3.5 h-3.5 text-gray-400" />
                 </div>
               )}
+
+              {/* Operator Type Badge */}
+              {operatorType && (
+                <span className={`inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md ${
+                  operatorType === 'ai'
+                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                    : 'bg-blue-100 text-blue-700 border border-blue-200'
+                }`}>
+                  {operatorType === 'ai' ? 'AI 发布' : '本人发布'}
+                </span>
+              )}
+
               <div className="flex items-center gap-1.5 text-gray-500">
                 <Calendar className="w-3.5 h-3.5" />
                 <span>发布 {formatTimeAgo(createdAt)}</span>
