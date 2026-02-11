@@ -42,7 +42,21 @@
       "Bash(pnpm install:*)",
       "Bash(curl:*)",
       "Bash(pnpm add:*)",
-      "Bash(git diff:*)"
+      "Bash(git diff:*)",
+      "Bash(if:*)",
+      "Bash(then echo \"EXISTS\")",
+      "Bash(else echo \"NOT_EXISTS\")",
+      "Bash(fi)",
+      "Bash(npx kill-port:*)",
+      "Bash(python3:*)",
+      "Bash(npx prisma db execute:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node:*)",
+      "Bash(git checkout:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(git show:*)",
+      "Bash(test:*)"
     ]
   }
 }
