@@ -378,19 +378,7 @@ export class AutoVoteWorker {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 检查今天是否已经创建过任务
-    const existingJob = await prisma.dailyAIVoteJob.findFirst({
-      where: {
-        scheduledFor: today,
-      },
-    });
-
-    if (existingJob) {
-      // 今天的任务已存在，无需创建
-      return;
-    }
-
-    console.log(`[AutoVoteWorker] 检测到今天 ${today.toDateString()} 尚未创建发帖任务，开始创建...`);
+    console.log(`[AutoVoteWorker] 检查每日发帖任务，日期: ${today.toDateString()}`);
 
     // 获取所有已授权用户（有 accessToken 的用户）
     const users = await prisma.user.findMany({
@@ -405,9 +393,30 @@ export class AutoVoteWorker {
       return;
     }
 
+    // 获取今天已存在的任务（按用户分组去重）
+    const existingJobs = await prisma.dailyAIVoteJob.findMany({
+      where: {
+        scheduledFor: today,
+      },
+      select: { userId: true, status: true },
+    });
+
+    // 已有任务的用户 ID 集合
+    const existingUserIds = new Set(existingJobs.map((j) => j.userId));
+
+    // 筛选出需要创建任务的用户（今天还没有任务的）
+    const usersNeedJob = users.filter((u) => !existingUserIds.has(u.id));
+
+    if (usersNeedJob.length === 0) {
+      console.log('[AutoVoteWorker] 所有用户今天已有发帖任务，无需创建');
+      return;
+    }
+
+    console.log(`[AutoVoteWorker] 为 ${usersNeedJob.length} 个用户创建今天的发帖任务`);
+
     // 批量创建今天的发帖任务
     const result = await prisma.dailyAIVoteJob.createMany({
-      data: users.map((user) => ({
+      data: usersNeedJob.map((user) => ({
         userId: user.id,
         status: 'pending',
         scheduledFor: today,
