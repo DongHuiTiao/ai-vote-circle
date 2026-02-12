@@ -107,7 +107,7 @@ export default function VoteDetailPage() {
         const data = await res.json();
         setUser(data.user);
       } catch (error) {
-        console.error('Failed to fetch user:', error);
+        // Error handling without console
       }
     }
     fetchUser();
@@ -130,7 +130,7 @@ export default function VoteDetailPage() {
         setUserHasFavorited(data.data.userHasFavorited || false);
       }
     } catch (err) {
-      console.error('Failed to refresh data:', err);
+      // Error handling without console
     }
   };
 
@@ -155,7 +155,6 @@ export default function VoteDetailPage() {
           setError(data.data?.vote ? '未知错误' : '投票不存在');
         }
       } catch (err) {
-        console.error('Failed to fetch vote detail:', err);
         setError('获取投票详情失败');
       } finally {
         setLoading(false);
@@ -196,7 +195,6 @@ export default function VoteDetailPage() {
         toast.error(data.error || '提交失败');
       }
     } catch (err) {
-      console.error('Failed to submit vote:', err);
       toast.error('提交失败');
     } finally {
       setSubmitting(false);
@@ -224,7 +222,6 @@ export default function VoteDetailPage() {
         toast.error(data.error || 'AI 建议失败');
       }
     } catch (err) {
-      console.error('Failed to AI suggest:', err);
       toast.error('AI 建议失败');
     } finally {
       setAiSuggesting(false);
@@ -259,7 +256,6 @@ export default function VoteDetailPage() {
     } catch (err) {
       // 出错时回滚
       setUserHasFavorited(!newStatus);
-      console.error('Toggle favorite error:', err);
       toast.error('操作失败，请重试');
     }
   }

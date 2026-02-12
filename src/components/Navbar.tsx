@@ -32,7 +32,7 @@ export function Navbar() {
         const data = await res.json();
         setUser(data.user);
       } catch (error) {
-        console.error('Failed to fetch user:', error);
+        // Error silently handled
       } finally {
         setLoading(false);
       }

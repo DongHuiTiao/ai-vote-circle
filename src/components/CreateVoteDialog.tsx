@@ -125,7 +125,6 @@ export function CreateVoteDialog({ isOpen, onClose, onSuccess }: CreateVoteDialo
         toast.error(data.error || '创建失败');
       }
     } catch (err) {
-      console.error('Failed to create vote:', err);
       toast.error('创建失败，请重试');
     } finally {
       setSubmitting(false);

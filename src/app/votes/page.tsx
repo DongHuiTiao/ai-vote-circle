@@ -75,7 +75,7 @@ export default function VotesPage() {
         const data = await res.json();
         setUser(data.user);
       } catch (error) {
-        console.error('Failed to fetch user:', error);
+        // Error handling without console
       }
     }
     fetchUser();
@@ -133,7 +133,7 @@ export default function VotesPage() {
         });
       }
     } catch (error) {
-      console.error('Failed to fetch votes:', error);
+      // Error handling without console
     } finally {
       setLoading(false);
       setLoadingMore(false);
