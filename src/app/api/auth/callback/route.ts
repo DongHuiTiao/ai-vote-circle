@@ -29,7 +29,13 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     // 使用绝对路径重定向
-    const errorUrl = new URL('/?error=no_code', request.url);
+    const getHost = (req: NextRequest) => {
+      const forwardedHost = req.headers.get('x-forwarded-host');
+      const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
+      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
+      return `${proto}//${host}`;
+    };
+    const errorUrl = new URL('/?error=no_code', getHost(request));
     return NextResponse.redirect(errorUrl);
   }
 
@@ -123,8 +129,6 @@ export async function GET(request: NextRequest) {
     // 获取登录前的页面路径
     const returnPath = cookieStore.get('return_path')?.value || '/';
 
-    console.error('returnPath', returnPath)
-
     // 删除 oauth_state 和 return_path cookie
     cookieStore.delete('oauth_state');
     cookieStore.delete('return_path');
@@ -204,16 +208,33 @@ export async function GET(request: NextRequest) {
       // 不影响登录流程，继续重定向
     }
 
-    // 重定向到登录前的页面（使用相对路径，避免端口问题）
+    // 重定向到登录前的页面
+    // 从请求头获取真实域名（支持反向代理）
+    const getHost = (req: NextRequest) => {
+      const forwardedHost = req.headers.get('x-forwarded-host');
+      const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
+      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
+      return `${proto}//${host}`;
+    };
+
+    const redirectUrl = getHost(request) + returnPath;
+
     authLogger.info('OAuth login successful', {
       userId: user.id,
       returnPath,
+      redirectUrl,
     });
 
-    return NextResponse.redirect(returnPath);
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     authLogger.error('OAuth callback error', { error });
-    const errorUrl = new URL('/?error=auth_failed', request.url);
+    const getHost = (req: NextRequest) => {
+      const forwardedHost = req.headers.get('x-forwarded-host');
+      const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
+      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
+      return `${proto}//${host}`;
+    };
+    const errorUrl = new URL('/?error=auth_failed', getHost(request));
     return NextResponse.redirect(errorUrl);
   }
 }
