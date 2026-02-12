@@ -40,3 +40,8 @@ next-env.d.ts
 prisma/migrations/
 
 *.backup
+
+# sensitive test scripts (contain credentials)
+scripts/*cloud*.js
+scripts/*secret*.js
+scripts/*test*.js
