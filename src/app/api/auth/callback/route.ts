@@ -204,22 +204,13 @@ export async function GET(request: NextRequest) {
       // 不影响登录流程，继续重定向
     }
 
-    // 重定向到登录前的页面
-    const redirectUrl = new URL(returnPath, request.url);
-
-    console.error('redirectUrl', redirectUrl)
-
-    console.error('request', request)
-
-    console.error('request.url', request.url)
-
+    // 重定向到登录前的页面（使用相对路径，避免端口问题）
     authLogger.info('OAuth login successful', {
       userId: user.id,
       returnPath,
-      redirectUrl: redirectUrl.toString(),
     });
 
-    return NextResponse.redirect(redirectUrl);
+    return NextResponse.redirect(returnPath);
   } catch (error) {
     authLogger.error('OAuth callback error', { error });
     const errorUrl = new URL('/?error=auth_failed', request.url);
