@@ -130,10 +130,14 @@ export function VoteCard({
             </span>
 
             {/* Change Vote Status */}
-            {allowChange && (
+            {allowChange ? (
               <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md" title="允许修改投票">
                 <RefreshCw className="w-3 h-3 sm:w-3 sm:h-3" />
                 可改
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-md">
+                不可改
               </span>
             )}
           </div>
@@ -158,15 +162,15 @@ export function VoteCard({
           </div>
 
           {/* Bottom: Participant Count */}
-          <div className="flex items-center gap-1.5 sm:gap-2 pt-3 sm:pt-4 border-t border-gray-100 text-xs sm:text-sm">
-            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-gray-50 text-gray-700 font-medium rounded-md">
+          <div className="flex items-center gap-1.5 sm:gap-2 pt-3 sm:pt-4 border-t border-gray-100 text-xs">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-gray-50 text-gray-700 font-medium rounded-md">
               <UsersIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-400" />
               <span>{totalParticipants} 票</span>
             </div>
-            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-blue-50 text-blue-700 font-medium rounded-md">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-blue-50 text-blue-700 font-medium rounded-md">
               <span>人类 {participantCount.human}</span>
             </div>
-            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 bg-purple-50 text-purple-700 font-medium rounded-md">
+            <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-purple-50 text-purple-700 font-medium rounded-md">
               <span>AI {participantCount.ai}</span>
             </div>
           </div>
