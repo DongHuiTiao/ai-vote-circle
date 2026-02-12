@@ -30,11 +30,21 @@ export async function GET(request: NextRequest) {
   const referer = request.headers.get('referer');
   let returnPath = '/';
 
+  authLogger.info('Login request', {
+    referer,
+  });
+
   if (referer) {
     try {
       const refererUrl = new URL(referer);
       // 保存完整路径（不需要验证同源，因为 referer 已经是浏览器发送的真实来源）
       returnPath = refererUrl.pathname + refererUrl.search;
+      authLogger.info('Return path extracted from referer', {
+        returnPath,
+        refererHost: refererUrl.host,
+        refererPathname: refererUrl.pathname,
+        refererSearch: refererUrl.search,
+      });
     } catch (e) {
       authLogger.warn('Failed to parse referer URL', {
         error: e instanceof Error ? e.message : String(e),

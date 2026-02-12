@@ -22,9 +22,18 @@ export async function GET(request: NextRequest) {
   // 获取保存的 state
   const savedState = cookieStore.get('oauth_state')?.value;
 
+  authLogger.info('State validation', {
+    receivedState: state,
+    savedState,
+    match: state === savedState,
+  });
+
   // WebView 环境下 state 验证可能失败，宽松处理
   if (savedState && state !== savedState) {
-    // 忽略 state 不匹配的情况（WebView 场景）
+    authLogger.warn('State mismatch, ignoring for WebView scenario', {
+      receivedState: state,
+      savedState,
+    });
   }
 
   if (!code) {
@@ -32,8 +41,8 @@ export async function GET(request: NextRequest) {
     const getHost = (req: NextRequest) => {
       const forwardedHost = req.headers.get('x-forwarded-host');
       const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
-      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
-      return `${proto}//${host}`;
+      const proto = (req.headers.get('x-forwarded-proto') || req.nextUrl.protocol).replace(':', '');
+      return `${proto}://${host}`;
     };
     const errorUrl = new URL('/?error=no_code', getHost(request));
     return NextResponse.redirect(errorUrl);
@@ -50,6 +59,14 @@ export async function GET(request: NextRequest) {
       client_secret: process.env.SECONDME_CLIENT_SECRET!,
     });
 
+    authLogger.info('Token exchange request', {
+      url: `${process.env.SECONDME_API_BASE_URL}/api/oauth/token/code`,
+      grant_type: 'authorization_code',
+      code: code?.substring(0, 20) + '...',
+      redirect_uri: process.env.SECONDME_REDIRECT_URI,
+      client_id: process.env.SECONDME_CLIENT_ID,
+    });
+
     const tokenResponse = await fetch(
       `${process.env.SECONDME_API_BASE_URL}/api/oauth/token/code`,
       {
@@ -62,11 +79,20 @@ export async function GET(request: NextRequest) {
     );
 
     if (!tokenResponse.ok) {
-      authLogger.error('Token exchange failed', { status: tokenResponse.status });
+      authLogger.error('Token exchange failed', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+      });
       throw new Error(`Failed to exchange token: ${tokenResponse.status}`);
     }
 
     const tokenResult = await tokenResponse.json();
+
+    authLogger.info('Token exchange response', {
+      code: tokenResult.code,
+      message: tokenResult.message,
+      hasData: !!tokenResult.data,
+    });
 
     // SecondMe API 响应格式：{ code: 0, data: { accessToken, refreshToken, expiresIn, ... } }
     if (tokenResult.code !== 0) {
@@ -74,6 +100,12 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = tokenResult.data;
+
+    authLogger.info('Token data received', {
+      accessToken: tokenData.accessToken?.substring(0, 20) + '...',
+      refreshToken: tokenData.refreshToken?.substring(0, 20) + '...',
+      expiresIn: tokenData.expiresIn,
+    });
 
     // 获取用户信息
     const userResponse = await fetch(
@@ -97,6 +129,12 @@ export async function GET(request: NextRequest) {
     }
 
     const userInfo = userData.data;
+
+    authLogger.info('User info retrieved', {
+      userId: userInfo.userId,
+      name: userInfo.name,
+      avatar: userInfo.avatar,
+    });
 
     // 查找或创建用户
     const user = await prisma.user.upsert({
@@ -127,7 +165,13 @@ export async function GET(request: NextRequest) {
     });
 
     // 获取登录前的页面路径
-    const returnPath = cookieStore.get('return_path')?.value || '/';
+    const returnPathCookie = cookieStore.get('return_path');
+    const returnPath = returnPathCookie?.value || '/';
+
+    authLogger.info('Return path from cookie', {
+      returnPathCookieValue: returnPathCookie?.value,
+      returnPath,
+    });
 
     // 删除 oauth_state 和 return_path cookie
     cookieStore.delete('oauth_state');
@@ -210,14 +254,24 @@ export async function GET(request: NextRequest) {
 
     // 重定向到登录前的页面
     // 从请求头获取真实域名（支持反向代理）
-    const getHost = (req: NextRequest) => {
-      const forwardedHost = req.headers.get('x-forwarded-host');
-      const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
-      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
-      return `${proto}//${host}`;
-    };
+    const forwardedHost = request.headers.get('x-forwarded-host');
+    const rawHost = request.headers.get('host') || request.nextUrl.host;
+    const rawProto = request.headers.get('x-forwarded-proto') || request.nextUrl.protocol;
+    const proto = rawProto.replace(':', '');
+    const host = forwardedHost || rawHost;
+    const baseUrl = `${proto}://${host}`;
 
-    const redirectUrl = getHost(request) + returnPath;
+    authLogger.info('Redirect URL construction', {
+      forwardedHost,
+      rawHost,
+      rawProto,
+      proto,
+      host,
+      baseUrl,
+      returnPath,
+    });
+
+    const redirectUrl = baseUrl + returnPath;
 
     authLogger.info('OAuth login successful', {
       userId: user.id,
@@ -231,8 +285,8 @@ export async function GET(request: NextRequest) {
     const getHost = (req: NextRequest) => {
       const forwardedHost = req.headers.get('x-forwarded-host');
       const host = forwardedHost || req.headers.get('host') || req.nextUrl.host;
-      const proto = req.headers.get('x-forwarded-proto') || req.nextUrl.protocol;
-      return `${proto}//${host}`;
+      const proto = (req.headers.get('x-forwarded-proto') || req.nextUrl.protocol).replace(':', '');
+      return `${proto}://${host}`;
     };
     const errorUrl = new URL('/?error=auth_failed', getHost(request));
     return NextResponse.redirect(errorUrl);
