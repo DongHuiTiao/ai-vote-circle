@@ -28,8 +28,9 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
-    // 使用相对路径，避免端口不匹配
-    return NextResponse.redirect('/?error=no_code');
+    // 使用绝对路径重定向
+    const errorUrl = new URL('/?error=no_code', request.url);
+    return NextResponse.redirect(errorUrl);
   }
 
   try {
@@ -201,15 +202,18 @@ export async function GET(request: NextRequest) {
       // 不影响登录流程，继续重定向
     }
 
-    // 重定向到登录前的页面（使用相对路径，避免端口不匹配）
+    // 重定向到登录前的页面
+    const redirectUrl = new URL(returnPath, request.url);
     authLogger.info('OAuth login successful', {
       userId: user.id,
       returnPath,
+      redirectUrl: redirectUrl.toString(),
     });
 
-    return NextResponse.redirect(returnPath);
+    return NextResponse.redirect(redirectUrl);
   } catch (error) {
     authLogger.error('OAuth callback error', { error });
-    return NextResponse.redirect('/?error=auth_failed');
+    const errorUrl = new URL('/?error=auth_failed', request.url);
+    return NextResponse.redirect(errorUrl);
   }
 }

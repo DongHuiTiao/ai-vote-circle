@@ -71,7 +71,10 @@
       "Bash(git push:*)",
       "Bash(git mv:*)",
       "Bash(git rm:*)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git config:*)",
+      "Bash(ping:*)",
+      "Bash(git remote set-url:*)"
     ]
   }
 }
