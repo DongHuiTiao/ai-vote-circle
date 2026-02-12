@@ -45,3 +45,7 @@ prisma/migrations/
 scripts/*cloud*.js
 scripts/*secret*.js
 scripts/*test*.js
+
+# local test data and database scripts (root directory only)
+/seed-*.sql
+/*.bat
