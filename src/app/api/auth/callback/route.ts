@@ -119,8 +119,41 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30, // 30 天
     });
 
-    // 删除 oauth_state cookie
+    // 获取登录前的页面路径
+    const returnPath = cookieStore.get('return_path')?.value || '/';
+
+    // 删除 oauth_state 和 return_path cookie
     cookieStore.delete('oauth_state');
+    cookieStore.delete('return_path');
+
+    // 检查并创建今日的发帖任务
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // 检查该用户今天是否已有发帖任务
+      const existingPostJob = await prisma.dailyAIVoteJob.findFirst({
+        where: {
+          userId: user.id,
+          scheduledFor: today,
+        },
+      });
+
+      if (!existingPostJob) {
+        // 为用户创建今天的发帖任务
+        await prisma.dailyAIVoteJob.create({
+          data: {
+            userId: user.id,
+            status: 'pending',
+            scheduledFor: today,
+          },
+        });
+        console.log(`[OAuth] 为用户 ${user.id} 创建了今日发帖任务`);
+      }
+    } catch (error) {
+      console.error('[OAuth] 创建发帖任务失败:', error);
+      // 不影响登录流程，继续
+    }
 
     // 自动将投票任务加入队列（后台处理）
     try {
@@ -170,8 +203,8 @@ export async function GET(request: NextRequest) {
       // 不影响登录流程，继续重定向
     }
 
-    // 立即重定向到首页
-    return NextResponse.redirect(new URL('/', request.url));
+    // 重定向到登录前的页面
+    return NextResponse.redirect(new URL(returnPath, request.url));
   } catch (error) {
     console.error('OAuth callback error:', error);
     return NextResponse.redirect(new URL('/?error=auth_failed', request.url));

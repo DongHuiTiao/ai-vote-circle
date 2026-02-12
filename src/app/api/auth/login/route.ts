@@ -14,6 +14,31 @@ export async function GET(request: NextRequest) {
     maxAge: 60 * 10, // 10 分钟
   });
 
+  // 保存登录前的页面路径，用于登录后返回
+  // 从 Referer 头获取来源页面
+  const referer = request.headers.get('referer');
+  let returnPath = '/';
+
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer);
+      // 只保存同源的路径，避免保存外部网站的路径
+      if (refererUrl.origin === request.nextUrl.origin) {
+        returnPath = refererUrl.pathname + refererUrl.search;
+      }
+    } catch (e) {
+      // 如果解析失败，使用默认路径
+      console.warn('Failed to parse referer:', e);
+    }
+  }
+
+  cookieStore.set('return_path', returnPath, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 10, // 10 分钟
+  });
+
   const params = new URLSearchParams({
     client_id: process.env.SECONDME_CLIENT_ID!,
     redirect_uri: process.env.SECONDME_REDIRECT_URI!,
