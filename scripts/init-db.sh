@@ -26,5 +26,4 @@ pnpm prisma db push
 echo "✅ 数据库初始化完成！"
 echo ""
 echo "可选操作："
-echo "  - 添加测试数据: pnpm tsx scripts/seed-test-votes.ts"
 echo "  - 打开数据库管理: vercel link && vercel postgres"
