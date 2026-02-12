@@ -8,7 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
-    "worker": "tsx src/lib/auto-vote-worker.ts",
     "clean-test-votes": "tsx scripts/clean-test-votes.ts"
   },
   "dependencies": {
