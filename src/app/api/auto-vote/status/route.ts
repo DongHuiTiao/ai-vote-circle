@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * GET /api/auto-vote/status
@@ -62,7 +63,9 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Get auto vote status error:', error);
+    apiLogger.error('获取队列状态失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '获取队列状态失败' },
       { status: 500 }

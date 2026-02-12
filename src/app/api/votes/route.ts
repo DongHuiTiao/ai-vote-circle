@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * GET /api/votes - 获取投票列表
@@ -144,7 +145,7 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error fetching votes:', error);
+    apiLogger.error('Failed to fetch votes', { error });
     return NextResponse.json(
       {
         code: -1,
@@ -286,12 +287,11 @@ export async function POST(request: NextRequest) {
             })),
             skipDuplicates: true,
           });
-
-          console.log(`[CreateVote] 为 ${usersToCreateJobs.length} 个用户创建自动投票任务`);
+          apiLogger.info('Created auto-vote jobs for new vote', { voteId: vote.id, count: usersToCreateJobs.length });
         }
       }
     } catch (error) {
-      console.error('[CreateVote] 创建自动投票任务失败:', error);
+      apiLogger.error('Failed to create auto-vote jobs', { error, voteId: vote.id });
       // 不影响投票创建流程，继续返回成功
     }
 
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error creating vote:', error);
+    apiLogger.error('Failed to create vote', { error });
     return NextResponse.json(
       {
         code: -1,

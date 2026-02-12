@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
@@ -66,7 +67,9 @@ export async function POST(
     );
 
     if (!actResponse.ok) {
-      console.error('Act API error:', actResponse.status, await actResponse.text());
+      apiLogger.error('AI service unavailable', {
+        status: actResponse.status,
+      });
       return NextResponse.json(
         { code: -1, message: 'AI 服务暂时不可用' },
         { status: 503 }
@@ -101,8 +104,11 @@ export async function POST(
                 result += data.choices[0].delta.content;
               }
             } catch (e) {
+              apiLogger.warn('Failed to parse SSE line', {
+                error: e instanceof Error ? e.message : String(e),
+                line: line.slice(0, 100), // 只记录前100字符
+              });
               // 忽略解析错误，继续处理下一行
-              console.warn('Failed to parse SSE line:', line);
             }
           }
         }
@@ -128,7 +134,10 @@ export async function POST(
         .trim();
       aiResult = JSON.parse(cleanedResult);
     } catch (e) {
-      console.error('Failed to parse AI result:', result);
+      apiLogger.error('Failed to parse AI result', {
+        error: e instanceof Error ? e.message : String(e),
+        result: result.slice(0, 200), // 记录前200字符
+      });
       return NextResponse.json(
         { code: -1, message: 'AI 返回格式错误' },
         { status: 503 }
@@ -180,7 +189,9 @@ export async function POST(
       },
     });
   } catch (error) {
-    console.error('AI suggestion error:', error);
+    apiLogger.error('生成 AI 建议失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '生成 AI 建议失败' },
       { status: 500 }

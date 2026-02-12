@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
+import { apiLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const user = await getCurrentUser();
@@ -22,6 +23,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
+    apiLogger.error('获取 Softmemory 信息失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '获取 Softmemory 信息失败' },
       { status: 500 }

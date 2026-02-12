@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   // 在外部声明，以便在 catch 块中访问
+  let user: any = null;
+  let voteId: string = '';
   let vote: any = null;
   let operatorType: string = 'human';
+  let choice: any = null;
 
   try {
     // 1. 验证用户已登录
-    const user = await getCurrentUser();
+    user = await getCurrentUser();
     if (!user) {
       return NextResponse.json(
         { code: -1, message: '请先登录' },
@@ -20,7 +24,7 @@ export async function POST(
       );
     }
 
-    const { id: voteId } = await params;
+    voteId = (await params).id;
 
     // 2. 验证投票存在
     vote = await prisma.vote.findUnique({
@@ -36,8 +40,9 @@ export async function POST(
 
     // 3. 解析请求体
     const body = await request.json();
-    const { choice, reason, operatorType: opType } = body;
-    operatorType = opType; // 保存到外部变量
+    choice = body.choice;
+    const reason = body.reason;
+    operatorType = body.operatorType; // 保存到外部变量
 
     // 验证必填字段
     if (choice === undefined || choice === null) {
@@ -111,7 +116,13 @@ export async function POST(
       data: { responseId: response.id },
     });
   } catch (error: any) {
-    console.error('提交投票失败:', error);
+    apiLogger.error('提交投票失败', {
+      voteId,
+      userId: user?.id,
+      operatorType,
+      choice,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     // 开发环境返回详细错误信息
     const isDev = process.env.NODE_ENV === 'development';

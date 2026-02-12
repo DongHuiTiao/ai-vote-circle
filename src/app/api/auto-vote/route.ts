@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { apiLogger } from '@/lib/logger';
 
 /**
  * POST /api/auto-vote
@@ -63,7 +64,12 @@ export async function POST(request: NextRequest) {
       skipDuplicates: true,
     });
 
-    console.log(`[AutoVote API] 为用户 ${user.id} 创建了 ${jobs.count} 个自动投票任务`);
+    apiLogger.info('自动投票任务已添加到队列', {
+      userId: user.id,
+      totalVotes: allVotes.length,
+      alreadyVoted: votedVoteIds.size,
+      queued: jobs.count,
+    });
 
     return NextResponse.json({
       code: 0,
@@ -75,7 +81,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Auto vote error:', error);
+    apiLogger.error('添加自动投票任务失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '添加自动投票任务失败' },
       { status: 500 }

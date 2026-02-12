@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { authLogger } from '@/lib/logger';
 
 // 管理员会话数据结构
 interface AdminSession {
@@ -17,7 +18,6 @@ export function verifyAdminCredentials(username: string, password: string): bool
   const adminPassword = process.env.ADMIN_PASSWORD;
 
   if (!adminUsername || !adminPassword) {
-    console.error('[AdminAuth] 管理员凭证未配置');
     return false;
   }
 
@@ -76,7 +76,9 @@ export async function verifyAdminSession(): Promise<boolean> {
 
     return session.isLoggedIn === true;
   } catch (error) {
-    console.error('[AdminAuth] 会话验证失败:', error);
+    authLogger.warn('Failed to verify admin session', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
 }

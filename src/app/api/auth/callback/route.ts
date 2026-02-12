@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
+import { authLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
 
   // WebView 环境下 state 验证可能失败，宽松处理
   if (savedState && state !== savedState) {
-    console.warn('OAuth state 验证失败，可能是跨 WebView 场景');
+    // 忽略 state 不匹配的情况（WebView 场景）
   }
 
   if (!code) {
@@ -44,14 +45,11 @@ export async function GET(request: NextRequest) {
     );
 
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('Token exchange failed:', tokenResponse.status, errorText);
+      authLogger.error('Token exchange failed', { status: tokenResponse.status });
       throw new Error(`Failed to exchange token: ${tokenResponse.status}`);
     }
 
     const tokenResult = await tokenResponse.json();
-
-    console.log('Token response:', JSON.stringify(tokenResult, null, 2));
 
     // SecondMe API 响应格式：{ code: 0, data: { accessToken, refreshToken, expiresIn, ... } }
     if (tokenResult.code !== 0) {
@@ -59,7 +57,6 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenData = tokenResult.data;
-    console.log('Token data received:', { hasAccessToken: !!tokenData.accessToken, expiresIn: tokenData.expiresIn });
 
     // 获取用户信息
     const userResponse = await fetch(
@@ -72,24 +69,17 @@ export async function GET(request: NextRequest) {
     );
 
     if (!userResponse.ok) {
+      authLogger.error('Failed to fetch user info', { status: userResponse.status });
       throw new Error('Failed to get user info');
     }
 
     const userData = await userResponse.json();
-
-    console.log('User info response:', JSON.stringify(userData, null, 2));
 
     if (userData.code !== 0) {
       throw new Error('Invalid user data response');
     }
 
     const userInfo = userData.data;
-    console.log('User info:', {
-      userId: userInfo.userId,
-      name: userInfo.name,
-      email: userInfo.email,
-      avatar: userInfo.avatar,
-    });
 
     // 查找或创建用户
     const user = await prisma.user.upsert({
@@ -148,10 +138,9 @@ export async function GET(request: NextRequest) {
             scheduledFor: today,
           },
         });
-        console.log(`[OAuth] 为用户 ${user.id} 创建了今日发帖任务`);
       }
     } catch (error) {
-      console.error('[OAuth] 创建发帖任务失败:', error);
+      authLogger.error('Failed to create daily post job', { error, userId: user.id });
       // 不影响登录流程，继续
     }
 
@@ -188,8 +177,6 @@ export async function GET(request: NextRequest) {
           skipDuplicates: true,
         });
 
-        console.log(`[OAuth] 为用户 ${user.id} 创建了 ${votesToProcess.length} 个自动投票任务`);
-
         // 设置标记，告诉前端查询队列状态
         cookieStore.set('auto_vote_pending', 'true', {
           httpOnly: false,
@@ -197,16 +184,18 @@ export async function GET(request: NextRequest) {
           sameSite: 'lax',
           maxAge: 60,
         });
+        authLogger.info('Created auto-vote jobs', { userId: user.id, count: votesToProcess.length });
       }
     } catch (error) {
-      console.error('[OAuth] 创建自动投票任务失败:', error);
+      authLogger.error('Failed to create auto-vote jobs', { error, userId: user.id });
       // 不影响登录流程，继续重定向
     }
 
     // 重定向到登录前的页面
+    authLogger.info('OAuth login successful', { userId: user.id, returnPath });
     return NextResponse.redirect(new URL(returnPath, request.url));
   } catch (error) {
-    console.error('OAuth callback error:', error);
+    authLogger.error('OAuth callback error', { error });
     return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
   }
 }

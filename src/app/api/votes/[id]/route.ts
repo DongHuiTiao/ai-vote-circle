@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { apiLogger } from '@/lib/logger';
 
 export async function GET(
   request: NextRequest,
@@ -183,7 +184,10 @@ export async function GET(
       },
     });
   } catch (error) {
-    console.error('获取投票详情失败:', error);
+    apiLogger.error('获取投票详情失败', {
+      voteId: (await params).id,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '获取投票详情失败' },
       { status: 500 }

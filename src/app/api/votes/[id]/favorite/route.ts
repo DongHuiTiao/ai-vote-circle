@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUser } from '@/lib/auth';
+import { apiLogger } from '@/lib/logger';
 
 // POST 收藏投票
 export async function POST(
@@ -60,7 +61,9 @@ export async function POST(
       message: '收藏成功',
     });
   } catch (error) {
-    console.error('收藏失败:', error);
+    apiLogger.error('收藏失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '收藏失败' },
       { status: 500 }
@@ -116,7 +119,9 @@ export async function DELETE(
       message: '取消收藏成功',
     });
   } catch (error) {
-    console.error('取消收藏失败:', error);
+    apiLogger.error('取消收藏失败', {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json(
       { code: -1, message: '取消收藏失败' },
       { status: 500 }

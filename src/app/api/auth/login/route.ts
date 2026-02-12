@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { authLogger } from '@/lib/logger';
 
 export async function GET(request: NextRequest) {
   const state = crypto.randomUUID();
@@ -27,8 +28,11 @@ export async function GET(request: NextRequest) {
         returnPath = refererUrl.pathname + refererUrl.search;
       }
     } catch (e) {
+      authLogger.warn('Failed to parse referer URL', {
+        error: e instanceof Error ? e.message : String(e),
+        referer,
+      });
       // 如果解析失败，使用默认路径
-      console.warn('Failed to parse referer:', e);
     }
   }
 
