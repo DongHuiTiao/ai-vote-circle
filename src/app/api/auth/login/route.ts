@@ -5,6 +5,16 @@ import { authLogger } from '@/lib/logger';
 export async function GET(request: NextRequest) {
   const state = crypto.randomUUID();
 
+  // 调试日志
+  authLogger.info('OAuth login initiated', {
+    url: request.url,
+    headers: Object.fromEntries(request.headers.entries()),
+    host: request.headers.get('host'),
+    xForwardedHost: request.headers.get('x-forwarded-host'),
+    xForwardedProto: request.headers.get('x-forwarded-proto'),
+    redirectUri: process.env.SECONDME_REDIRECT_URI,
+  });
+
   const cookieStore = await cookies();
 
   // 保存 state 到 cookie 用于验证
@@ -23,10 +33,8 @@ export async function GET(request: NextRequest) {
   if (referer) {
     try {
       const refererUrl = new URL(referer);
-      // 只保存同源的路径，避免保存外部网站的路径
-      if (refererUrl.origin === request.nextUrl.origin) {
-        returnPath = refererUrl.pathname + refererUrl.search;
-      }
+      // 保存完整路径（不需要验证同源，因为 referer 已经是浏览器发送的真实来源）
+      returnPath = refererUrl.pathname + refererUrl.search;
     } catch (e) {
       authLogger.warn('Failed to parse referer URL', {
         error: e instanceof Error ? e.message : String(e),

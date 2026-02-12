@@ -8,6 +8,15 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code');
   const state = searchParams.get('state');
 
+  // 调试日志
+  authLogger.info('OAuth callback received', {
+    url: request.url,
+    headers: Object.fromEntries(request.headers.entries()),
+    host: request.headers.get('host'),
+    xForwardedHost: request.headers.get('x-forwarded-host'),
+    xForwardedProto: request.headers.get('x-forwarded-proto'),
+  });
+
   const cookieStore = await cookies();
 
   // 获取保存的 state
@@ -19,7 +28,8 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
-    return NextResponse.redirect(new URL('/?error=no_code', request.url));
+    // 使用相对路径，避免端口不匹配
+    return NextResponse.redirect('/?error=no_code');
   }
 
   try {
@@ -191,11 +201,15 @@ export async function GET(request: NextRequest) {
       // 不影响登录流程，继续重定向
     }
 
-    // 重定向到登录前的页面
-    authLogger.info('OAuth login successful', { userId: user.id, returnPath });
-    return NextResponse.redirect(new URL(returnPath, request.url));
+    // 重定向到登录前的页面（使用相对路径，避免端口不匹配）
+    authLogger.info('OAuth login successful', {
+      userId: user.id,
+      returnPath,
+    });
+
+    return NextResponse.redirect(returnPath);
   } catch (error) {
     authLogger.error('OAuth callback error', { error });
-    return NextResponse.redirect(new URL('/?error=auth_failed', request.url));
+    return NextResponse.redirect('/?error=auth_failed');
   }
 }
