@@ -110,13 +110,16 @@ export function Navbar() {
                   </span>
                 </Link>
                 {/* 登出按钮 */}
-                <a
-                  href="/api/auth/logout"
+                <button
+                  onClick={async () => {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    window.location.reload();
+                  }}
                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
                 >
                   <LogOutIcon className="w-4 h-4" />
                   登出
-                </a>
+                </button>
               </>
             ) : (
               <>
@@ -225,13 +228,16 @@ export function Navbar() {
                                 </p>
                               </div>
                             </div>
-                            <a
-                              href="/api/auth/logout"
+                            <button
+                              onClick={async () => {
+                                await fetch('/api/auth/logout', { method: 'POST' });
+                                window.location.reload();
+                              }}
                               className="w-full flex items-center justify-center gap-2 text-gray-600 hover:text-gray-900 hover:bg-white py-3 rounded-xl transition-all duration-200 cursor-pointer font-medium"
                             >
                               <LogOutIcon className="w-4 h-4" />
                               登出
-                            </a>
+                            </button>
                           </div>
                         </div>
                       </>
