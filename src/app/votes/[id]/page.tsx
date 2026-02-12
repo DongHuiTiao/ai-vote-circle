@@ -1,9 +1,10 @@
 'use client';
 
-import { CheckCircle2, User, Bot, Star, RefreshCw, Loader2 } from 'lucide-react';
+import { CheckCircle2, User, Bot, Star, RefreshCw, Loader2, Calendar, Activity, Clock, UsersIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
+import { useLoginPrompt } from '@/contexts/LoginPromptContext';
 
 interface Vote {
   id: string;
@@ -62,9 +63,17 @@ interface VoteDetailResponse {
   };
 }
 
+interface UserInfo {
+  id: string;
+  nickname: string | null;
+  avatar: string | null;
+  secondmeUserId: string;
+}
+
 export default function VoteDetailPage() {
   const params = useParams();
   const voteId = params.id as string;
+  const { showLoginPrompt } = useLoginPrompt();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +85,7 @@ export default function VoteDetailPage() {
   const [userHasVotedAsHuman, setUserHasVotedAsHuman] = useState(false);
   const [userHasVotedAsAI, setUserHasVotedAsAI] = useState(false);
   const [userHasFavorited, setUserHasFavorited] = useState(false);
+  const [user, setUser] = useState<UserInfo | null>(null);
 
   // Form state
   const [selectedChoice, setSelectedChoice] = useState<number | number[] | null>(null);
@@ -88,6 +98,20 @@ export default function VoteDetailPage() {
 
   // Tab state
   const [activeTab, setActiveTab] = useState<'results' | 'participate' | 'comments'>('participate');
+
+  // 获取用户信息
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        setUser(data.user);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      }
+    }
+    fetchUser();
+  }, []);
 
   // Refresh data function
   const refreshData = async () => {
@@ -208,6 +232,12 @@ export default function VoteDetailPage() {
   }
 
   async function handleToggleFavorite() {
+    // 检查用户是否登录
+    if (!user) {
+      showLoginPrompt();
+      return;
+    }
+
     // 乐观更新 UI
     const newStatus = !userHasFavorited;
     setUserHasFavorited(newStatus);
@@ -233,6 +263,39 @@ export default function VoteDetailPage() {
       toast.error('操作失败，请重试');
     }
   }
+
+  // 时间格式化函数
+  const formatTimeAgo = (date: Date) => {
+    const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
+    if (seconds < 60) return '刚刚';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes}分钟前`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}小时前`;
+    const days = Math.floor(hours / 24);
+    return `${days}天前`;
+  };
+
+  const formatTimeLeft = (date: Date) => {
+    const timeLeft = new Date(date).getTime() - new Date().getTime();
+    const daysLeft = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+
+    if (daysLeft >= 1) {
+      return `${daysLeft}天后截止`;
+    }
+
+    const hoursLeft = Math.floor(timeLeft / (1000 * 60 * 60));
+    if (hoursLeft >= 1) {
+      return `${hoursLeft}小时后截止`;
+    }
+
+    const minutesLeft = Math.floor(timeLeft / (1000 * 60));
+    if (minutesLeft >= 1) {
+      return `${minutesLeft}分钟后截止`;
+    }
+
+    return '即将截止';
+  };
 
   if (loading) {
     return (
@@ -270,72 +333,140 @@ export default function VoteDetailPage() {
       .reduce((set, r) => set.add(r.userId), new Set<string>()).size,
   };
 
+  // 计算截止时间状态
+  const isExpired = vote.expiresAt && new Date(vote.expiresAt) < new Date();
+  const getTimeStatus = () => {
+    if (isExpired) {
+      return { text: '已截止', color: 'text-red-600', bg: 'bg-red-50', icon: Clock };
+    }
+    if (vote.expiresAt) {
+      return { text: formatTimeLeft(vote.expiresAt), color: 'text-orange-600', bg: 'bg-orange-50', icon: Clock };
+    }
+    return { text: '长期收集', color: 'text-green-600', bg: 'bg-green-50', icon: RefreshCw };
+  };
+  const timeStatus = getTimeStatus();
+  const TimeIcon = timeStatus.icon;
+
   return (
     <>
       {/* Header */}
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           {/* Status Tags Row */}
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs sm:text-sm mb-3 sm:mb-4">
-            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
-              {vote.type === 'single' ? '单选' : '多选'}
-            </span>
-            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-green-50 text-green-700 rounded-lg font-medium">
-              ✓
-            </span>
-            {vote.allowChange ? (
-              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-green-50 text-green-700 rounded-lg font-medium">
-                允许改票
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm mb-3 sm:mb-4">
+            {/* Left: Status Tags */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-primary-100 text-primary-700 rounded-lg font-medium">
+                {vote.type === 'single' ? '单选' : '多选'}
               </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-gray-100 text-gray-600 rounded-lg font-medium">
-                不可改
+              {vote.allowChange ? (
+                <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-md" title="允许修改投票">
+                  <RefreshCw className="w-3 h-3 sm:w-3 sm:h-3" />
+                  可改
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-gray-100 text-gray-600 text-xs font-medium rounded-md">
+                  不可改
+                </span>
+              )}
+              {userHasVotedAsHuman && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
+                  本人已投
+                </span>
+              )}
+              {userHasVotedAsAI && (
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                  <CheckCircle2 className="w-3 h-3" />
+                  AI已投
+                </span>
+              )}
+            </div>
+
+            {/* Right: Participant Count + Deadline Status */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-gray-50 text-gray-700 font-medium rounded-md">
+                <UsersIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>{totalVotes} 票</span>
+              </div>
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-blue-50 text-blue-700 font-medium rounded-md">
+                <span>人类 {participantCount.human}</span>
+              </div>
+              <div className="inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 bg-purple-50 text-purple-700 font-medium rounded-md">
+                <span>AI {participantCount.ai}</span>
+              </div>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-1 sm:px-2.5 sm:py-1 ${timeStatus.bg} ${timeStatus.color} text-xs font-medium rounded-md`}>
+                <TimeIcon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                {timeStatus.text}
               </span>
-            )}
-            <span className="text-gray-300 hidden sm:inline">·</span>
-            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-blue-50 text-blue-700 rounded-lg font-medium">
-              👤 {participantCount.human}
-            </span>
-            <span className="text-gray-300 hidden sm:inline">·</span>
-            <span className="inline-flex items-center gap-1 px-2 py-1 sm:px-2.5 sm:py-1 bg-purple-50 text-purple-700 rounded-lg font-medium">
-              🤖 {participantCount.ai}
-            </span>
-            <span className="text-gray-300 hidden sm:inline">·</span>
-            <span className="font-medium text-gray-900">{totalVotes} 票</span>
-            {userHasVotedAsHuman && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
-                <CheckCircle2 className="w-3 h-3" />
-                本人已投
-              </span>
-            )}
-            {userHasVotedAsAI && (
-              <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                <CheckCircle2 className="w-3 h-3" />
-                AI已投
-              </span>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="mb-3 sm:mb-4">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">{vote.title}</h1>
+            {vote.description && (
+              <p className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">{vote.description}</p>
             )}
           </div>
 
-          {/* Title + Favorite Button */}
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 sm:mb-3 leading-tight">{vote.title}</h1>
-              {vote.description && (
-                <p className="text-gray-700 text-sm sm:text-base lg:text-lg leading-relaxed">{vote.description}</p>
+          {/* Creator & Time Information Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 mt-3 pt-3 border-t border-gray-50 text-xs sm:text-sm">
+            {/* Left: Creator + Operator Type + Published Time */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              {vote.creator.avatar ? (
+                <img
+                  src={vote.creator.avatar}
+                  alt={vote.creator.nickname || '发布者'}
+                  className="w-6 h-6 rounded-full object-cover"
+                />
+              ) : (
+                <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center">
+                  <User className="w-3.5 h-3.5 text-gray-400" />
+                </div>
               )}
+
+              {/* Operator Type Badge */}
+              {vote.operatorType && (
+                <span className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 text-xs font-medium rounded-md ${
+                  vote.operatorType === 'ai'
+                    ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                    : 'bg-blue-100 text-blue-700 border border-blue-200'
+                }`}>
+                  {vote.operatorType === 'ai' ? 'AI' : '本人'}
+                </span>
+              )}
+
+              <div className="flex items-center gap-1 text-gray-500">
+                <Calendar className="w-3 h-3.5" />
+                <span className="hidden sm:inline">发布 </span>
+                <span>{formatTimeAgo(vote.createdAt)}</span>
+              </div>
             </div>
-            <button
-              onClick={handleToggleFavorite}
-              className={`flex-shrink-0 px-3 py-2 sm:px-4 sm:py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-1.5 sm:gap-2 ${
-                userHasFavorited
-                  ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
-                  : 'text-gray-500 hover:bg-gray-100'
-              }`}
-              title={userHasFavorited ? '取消收藏' : '收藏'}
-            >
-              <Star className={`w-4 h-4 flex-shrink-0 ${userHasFavorited ? 'fill-current' : ''}`} />
-              <span className="hidden sm:inline">{userHasFavorited ? '已收藏' : '收藏'}</span>
-            </button>
+
+            {/* Right: Favorite + Active Time */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Favorite Button */}
+              <button
+                onClick={handleToggleFavorite}
+                className={`px-2 sm:px-3 py-1.5 rounded-md transition-colors duration-200 flex items-center gap-1 sm:gap-1.5 ${
+                  userHasFavorited
+                    ? 'text-yellow-600 bg-yellow-50 hover:bg-yellow-100'
+                    : 'text-gray-500 hover:bg-gray-100'
+                }`}
+                title={userHasFavorited ? '取消收藏' : '收藏'}
+              >
+                <Star className={`w-3.5 h-3.5 flex-shrink-0 ${userHasFavorited ? 'fill-current' : ''}`} />
+                <span className="hidden sm:inline text-sm font-medium">
+                  {userHasFavorited ? '已收藏' : '收藏'}
+                </span>
+              </button>
+              <div className="flex items-center gap-1 text-gray-500">
+                <Activity className="w-3 h-3.5" />
+                <span className="hidden sm:inline">活跃 </span>
+                <span>{formatTimeAgo(vote.activeAt)}</span>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -354,7 +485,17 @@ export default function VoteDetailPage() {
             🗳️ 参与投票
           </button>
           <button
-            onClick={() => setActiveTab('results')}
+            onClick={() => {
+              if (!user) {
+                showLoginPrompt();
+                return;
+              }
+              if (!userHasVotedAsHuman) {
+                toast.warning('本人投票后才能查看哦');
+                return;
+              }
+              setActiveTab('results');
+            }}
             className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
               activeTab === 'results'
                 ? 'bg-primary-500 text-white shadow-md'
@@ -364,7 +505,17 @@ export default function VoteDetailPage() {
             📊 投票结果
           </button>
           <button
-            onClick={() => setActiveTab('comments')}
+            onClick={() => {
+              if (!user) {
+                showLoginPrompt();
+                return;
+              }
+              if (!userHasVotedAsHuman) {
+                toast.warning('本人投票后才能查看哦');
+                return;
+              }
+              setActiveTab('comments');
+            }}
             className={`flex-shrink-0 px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg font-medium transition-all duration-200 text-sm sm:text-base ${
               activeTab === 'comments'
                 ? 'bg-primary-500 text-white shadow-md'
@@ -382,6 +533,20 @@ export default function VoteDetailPage() {
             {/* Tab Content */}
             {activeTab === 'participate' && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+                {/* 未登录提示横幅 */}
+                {!user && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start gap-3">
+                      <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <div>
+                        <h3 className="font-semibold text-blue-900 mb-1">请先登录</h3>
+                        <p className="text-sm text-blue-700">登录后即可参与投票，分享你的观点</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {(!vote.allowChange && userHasVotedAsHuman) ? (
                   // 不可改票且已投票
                   <div className="text-center py-8 sm:py-12">
@@ -400,12 +565,14 @@ export default function VoteDetailPage() {
                         {vote.options.map((option, index) => (
                           <label
                             key={index}
-                            className={`flex items-center p-3 sm:p-4 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                              (vote.type === 'single'
-                                ? selectedChoice === index
-                                : Array.isArray(selectedChoice) && selectedChoice.includes(index))
-                                ? 'border-primary-500 bg-primary-50'
-                                : 'border-gray-200 hover:border-gray-300'
+                            className={`flex items-center p-3 sm:p-4 border-2 rounded-lg transition-all duration-200 ${
+                              !user
+                                ? 'border-gray-200 bg-gray-50 cursor-not-allowed opacity-75'
+                                : (vote.type === 'single'
+                                    ? selectedChoice === index
+                                    : Array.isArray(selectedChoice) && selectedChoice.includes(index))
+                                  ? 'border-primary-500 bg-primary-50'
+                                  : 'border-gray-200 hover:border-gray-300 cursor-pointer'
                             }`}
                           >
                             <input
@@ -418,6 +585,10 @@ export default function VoteDetailPage() {
                                   : Array.isArray(selectedChoice) && selectedChoice.includes(index)
                               }
                               onChange={(e) => {
+                                if (!user) {
+                                  showLoginPrompt();
+                                  return;
+                                }
                                 if (vote.type === 'single') {
                                   setSelectedChoice(index);
                                 } else {
@@ -429,6 +600,7 @@ export default function VoteDetailPage() {
                                   }
                                 }
                               }}
+                              disabled={!user}
                               className="w-5 h-5 text-primary-600 border-gray-300 focus:ring-primary-500"
                             />
                             <span className="ml-3 text-sm sm:text-base font-medium text-gray-900">{option}</span>
@@ -445,8 +617,12 @@ export default function VoteDetailPage() {
                           <button
                             type="button"
                             onClick={handleAISuggest}
-                            disabled={aiSuggesting}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            disabled={aiSuggesting || !user}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                              !user
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-purple-100 text-purple-700 hover:bg-purple-200 disabled:opacity-50 disabled:cursor-not-allowed'
+                            }`}
                           >
                             {aiSuggesting ? (
                               <>
@@ -466,21 +642,39 @@ export default function VoteDetailPage() {
                           onChange={(e) => setReason(e.target.value)}
                           placeholder="分享一下你的选择理由..."
                           rows={4}
-                          className="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                          disabled={!user}
+                          className={`w-full px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base border rounded-lg resize-none ${
+                            !user
+                              ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed'
+                              : 'border-gray-300 focus:ring-2 focus:ring-primary-500 focus:border-primary-500'
+                          }`}
                         />
                       </div>
 
                       {/* Submit Button */}
                       <button
                         type="submit"
-                        disabled={submitting || selectedChoice === null}
-                        className="w-full py-3 px-6 bg-primary-500 text-white font-medium rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        onClick={(e) => {
+                          if (!user) {
+                            e.preventDefault();
+                            showLoginPrompt();
+                            return;
+                          }
+                        }}
+                        disabled={submitting || selectedChoice === null || !user}
+                        className={`w-full py-3 px-6 font-medium rounded-lg transition-colors ${
+                          !user
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                            : 'bg-primary-500 text-white hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                        }`}
                       >
                         {submitting ? (
                           <span className="flex items-center justify-center gap-2">
                             <Loader2 className="w-4 h-4 animate-spin" />
                             提交中...
                           </span>
+                        ) : !user ? (
+                          '登录后投票'
                         ) : (
                           '提交投票'
                         )}

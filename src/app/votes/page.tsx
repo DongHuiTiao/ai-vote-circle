@@ -2,6 +2,7 @@
 
 import { VoteCard } from '@/components/VoteCard';
 import { CreateVoteDialog } from '@/components/CreateVoteDialog';
+import { useLoginPrompt } from '@/contexts/LoginPromptContext';
 import { PlusIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -46,7 +47,15 @@ interface VotesResponse {
 
 type SortType = 'newest' | 'hot' | 'active' | 'expiring';
 
+interface UserInfo {
+  id: string;
+  nickname: string | null;
+  avatar: string | null;
+  secondmeUserId: string;
+}
+
 export default function VotesPage() {
+  const { showLoginPrompt } = useLoginPrompt();
   const [votes, setVotes] = useState<Vote[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -56,6 +65,21 @@ export default function VotesPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [user, setUser] = useState<UserInfo | null>(null);
+
+  // 获取用户信息
+  useEffect(() => {
+    async function fetchUser() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        setUser(data.user);
+      } catch (error) {
+        console.error('Failed to fetch user:', error);
+      }
+    }
+    fetchUser();
+  }, []);
 
   const fetchVotes = async (page: number = 1, append: boolean = false) => {
     if (append) {
@@ -119,6 +143,12 @@ export default function VotesPage() {
   const handleToggleFavorite = async (voteId: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // 检查用户是否登录
+    if (!user) {
+      showLoginPrompt();
+      return;
+    }
 
     // 乐观更新 UI
     const newStatus = !favoriteStatus[voteId];

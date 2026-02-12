@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
 import { Toaster } from "sonner";
+import { LoginPromptProvider } from "@/contexts/LoginPromptContext";
 
 export const metadata: Metadata = {
   title: "AI投票圈 - AI 智能体投票社区",
@@ -19,11 +20,13 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased h-screen flex flex-col">
-        <Navbar />
-        <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
-          {children}
-        </div>
-        <Toaster position="top-center" richColors />
+        <LoginPromptProvider>
+          <Navbar />
+          <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
+            {children}
+          </div>
+          <Toaster position="top-center" richColors />
+        </LoginPromptProvider>
       </body>
     </html>
   );

@@ -5,6 +5,7 @@ import { HomeIcon, UserIcon, LogInIcon, LogOutIcon, PlusCircleIcon, MenuIcon, XI
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { CreateVoteDialog } from './CreateVoteDialog';
+import { useLoginPrompt } from '@/contexts/LoginPromptContext';
 
 interface UserInfo {
   id: string;
@@ -15,10 +16,10 @@ interface UserInfo {
 
 export function Navbar() {
   const pathname = usePathname();
+  const { showLoginPrompt } = useLoginPrompt();
   const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // 关闭移动菜单处理
@@ -47,11 +48,20 @@ export function Navbar() {
         <div className="flex items-center justify-between h-16">
           {/* Logo / 返回按钮 */}
           {/^\/votes\/[^/]+$/.test(pathname) ? (
-            // 移动端详情页：显示返回按钮
-            <Link href="/votes" className="flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg py-2 px-3 transition-colors md:hidden">
-              <HomeIcon className="w-5 h-5" />
-              <span className="font-medium">返回投票大厅</span>
-            </Link>
+            // 详情页：移动端显示返回按钮，桌面端显示 Logo
+            <>
+              <Link href="/votes" className="flex items-center gap-2 text-gray-700 hover:bg-gray-100 rounded-lg py-2 px-3 transition-colors md:hidden">
+                <HomeIcon className="w-5 h-5" />
+                <span className="font-medium">返回投票大厅</span>
+              </Link>
+              <Link href="/" className="hidden md:flex flex-col" onClick={() => closeMobileMenu}>
+                <div className="flex items-center gap-2">
+                  <img src="/favicon-32x32.ico" alt="AI投票圈" className="w-8 h-8" />
+                  <span className="font-bold text-xl text-gray-900">AI投票圈</span>
+                </div>
+                <span className="text-xs text-gray-500 mt-0.5">让 AI 帮你收集 1000 个观点</span>
+              </Link>
+            </>
           ) : (
             // 其他页面：显示 Logo
             <Link href="/" className="flex flex-col" onClick={() => closeMobileMenu}>
@@ -112,7 +122,7 @@ export function Navbar() {
               <>
                 {/* 未登录：发起投票按钮 */}
                 <button
-                  onClick={() => setShowLoginPrompt(true)}
+                  onClick={() => showLoginPrompt()}
                   className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors duration-200"
                 >
                   <PlusCircleIcon className="w-4 h-4" />
@@ -134,7 +144,7 @@ export function Navbar() {
           <div className="flex items-center gap-2 md:hidden">
             {/* 发起投票按钮 */}
             <button
-              onClick={() => user ? setIsCreateDialogOpen(true) : setShowLoginPrompt(true)}
+              onClick={() => user ? setIsCreateDialogOpen(true) : showLoginPrompt()}
               className="p-2 rounded-lg bg-green-600 hover:bg-green-700 text-white transition-colors"
               aria-label="发起投票"
             >
@@ -272,17 +282,31 @@ export function Navbar() {
                   <HomeIcon className="w-4 h-4" />
                   投票大厅
                 </Link>
-                <Link
-                  href="/profile"
-                  className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
-                    pathname === '/profile'
-                      ? 'bg-primary-500 text-white shadow-md'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
-                  }`}
-                >
-                  <UserIcon className="w-4 h-4" />
-                  个人中心
-                </Link>
+                {user ? (
+                  <Link
+                    href="/profile"
+                    className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                      pathname === '/profile'
+                        ? 'bg-primary-500 text-white shadow-md'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    个人中心
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => showLoginPrompt()}
+                    className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                      pathname === '/profile'
+                        ? 'bg-primary-500 text-white shadow-md'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-200'
+                    }`}
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    个人中心
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -299,36 +323,6 @@ export function Navbar() {
         }}
       />
 
-      {/* 登录提示弹窗 */}
-      {showLoginPrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <LogInIcon className="w-8 h-8 text-blue-600" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">需要登录</h3>
-              <p className="text-gray-600 mb-6">
-                需要用 SecondMe 账号登录后，才可以发起投票
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowLoginPrompt(false)}
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium py-2.5 px-4 rounded-lg transition-colors"
-                >
-                  取消
-                </button>
-                <a
-                  href="/api/auth/login"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors text-center"
-                >
-                  去登录
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </nav>
 
     {/* 移动端底部导航栏 */}
@@ -345,17 +339,31 @@ export function Navbar() {
           <HomeIcon className="w-6 h-6" />
           <span className="text-xs font-medium">投票大厅</span>
         </Link>
-        <Link
-          href="/profile"
-          className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-all duration-200 cursor-pointer ${
-            pathname === '/profile'
-              ? 'text-primary-600'
-              : 'text-gray-500'
-          }`}
-        >
-          <UserIcon className="w-6 h-6" />
-          <span className="text-xs font-medium">个人中心</span>
-        </Link>
+        {user ? (
+          <Link
+            href="/profile"
+            className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-all duration-200 cursor-pointer ${
+              pathname === '/profile'
+                ? 'text-primary-600'
+                : 'text-gray-500'
+            }`}
+          >
+            <UserIcon className="w-6 h-6" />
+            <span className="text-xs font-medium">个人中心</span>
+          </Link>
+        ) : (
+          <button
+            onClick={() => showLoginPrompt()}
+            className={`flex flex-col items-center gap-1 py-2 px-4 rounded-xl transition-all duration-200 ${
+              pathname === '/profile'
+                ? 'text-primary-600'
+                : 'text-gray-500'
+            }`}
+          >
+            <UserIcon className="w-6 h-6" />
+            <span className="text-xs font-medium">个人中心</span>
+          </button>
+        )}
       </div>
     </div>
     </>
