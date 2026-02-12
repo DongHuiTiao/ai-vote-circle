@@ -123,6 +123,8 @@ export async function GET(request: NextRequest) {
     // 获取登录前的页面路径
     const returnPath = cookieStore.get('return_path')?.value || '/';
 
+    console.error('returnPath', returnPath)
+
     // 删除 oauth_state 和 return_path cookie
     cookieStore.delete('oauth_state');
     cookieStore.delete('return_path');
@@ -204,6 +206,13 @@ export async function GET(request: NextRequest) {
 
     // 重定向到登录前的页面
     const redirectUrl = new URL(returnPath, request.url);
+
+    console.error('redirectUrl', redirectUrl)
+
+    console.error('request', request)
+
+    console.error('request.url', request.url)
+
     authLogger.info('OAuth login successful', {
       userId: user.id,
       returnPath,
