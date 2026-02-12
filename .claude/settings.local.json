@@ -66,7 +66,12 @@
       "Bash(sqlite3:*)",
       "mcp__mind-map__update_node_children",
       "Bash(npx next build:*)",
-      "Bash(npm run clean-test-votes:*)"
+      "Bash(npm run clean-test-votes:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git push:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)",
+      "Bash(git reset:*)"
     ]
   }
 }
